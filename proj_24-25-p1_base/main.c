@@ -13,9 +13,6 @@
 #include "operations.h"
 
 // Hack to solve the issue of DT_REG not being recognized
-#ifndef DT_REG
-#define DT_REG 8
-#endif
 
 int main(int argc, char *argv[]) {
   if (argc != 3) {
@@ -41,8 +38,13 @@ int main(int argc, char *argv[]) {
 
   //int MAX_BACKUPS = atoi(argv[2]); not implemented
 
+  //Structure to verify file type
+  struct stat sb;
+  char path[PATH_MAX]; //For the build of the path of file
+
   while ((dp = readdir(dir)) != NULL) {
-    if (dp->d_type == DT_REG && is_jobs_file(dp->d_name)) {
+    snprintf(path, PATH_MAX, "%s/%s", dir_path, dp->d_name); //Builds the path to be used in stat(path, &sb)
+    if (stat(path, &sb) == 0 && S_ISREG(sb.st_mode) && is_jobs_file(dp->d_name)) {
       size_t len = strlen(dir_path) + strlen(dp->d_name) + 2; // +2 for '/' and '\0'
       char *jobs_path = (char*)safe_malloc(len);
       strcpy(jobs_path, dir_path);
