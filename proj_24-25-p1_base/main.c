@@ -185,19 +185,6 @@ int main(int argc, char *argv[]) {
             return 0;
         }
       }
-
-      if (close(jobs_fd) == -1) {
-        fprintf(stderr, "Failed to close job file\n");
-        return 1;
-      }
-
-      if (close(out_fd) == -1) {
-        fprintf(stderr, "Failed to close output file\n");
-        return 1;
-      }
-
-      free(jobs_path);
-      free(out_path);
     }
   }
   if (closedir(dir) == -1) {
