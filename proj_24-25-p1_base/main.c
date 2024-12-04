@@ -1,6 +1,6 @@
 #include <dirent.h>    
 #include <errno.h>  
-#include <fcntl.h>  
+#include <fcntl.h>
 #include <limits.h>    
 #include <stdio.h>     
 #include <stdlib.h>    
@@ -12,7 +12,7 @@
 #include "parser.h"
 #include "operations.h"
 
-// Hack to solve the issue of DT_REG not being recognized
+int MAX_BACKUPS;
 
 int main(int argc, char *argv[]) {
   if (argc != 3) {
@@ -26,6 +26,7 @@ int main(int argc, char *argv[]) {
   }
 
   char *dir_path = argv[1];
+  //MAX_BACKUPS = argv[2];
   DIR *dir = opendir(dir_path);
 
   if (dir == NULL) {
@@ -40,16 +41,12 @@ int main(int argc, char *argv[]) {
 
   //Structure to verify file type
   struct stat sb;
-  char path[PATH_MAX]; //For the build of the path of file
+  char jobs_path[PATH_MAX]; //For the build of the path of file
 
   while ((dp = readdir(dir)) != NULL) {
-    snprintf(path, PATH_MAX, "%s/%s", dir_path, dp->d_name); //Builds the path to be used in stat(path, &sb)
-    if (stat(path, &sb) == 0 && S_ISREG(sb.st_mode) && is_jobs_file(dp->d_name)) {
+    snprintf(jobs_path, PATH_MAX, "%s/%s", dir_path, dp->d_name); //Builds the path to be used in stat(path, &sb)
+    if (stat(jobs_path, &sb) == 0 && S_ISREG(sb.st_mode) && is_jobs_file(dp->d_name)) {
       size_t len = strlen(dir_path) + strlen(dp->d_name) + 2; // +2 for '/' and '\0'
-      char *jobs_path = (char*)safe_malloc(len);
-      strcpy(jobs_path, dir_path);
-      strcat(jobs_path, "/");
-      strcat(jobs_path, dp->d_name);
 
       int jobs_fd = open(jobs_path, O_RDONLY);
       if (jobs_fd == -1) {
@@ -175,7 +172,6 @@ int main(int argc, char *argv[]) {
               return 1;
             }
 
-            free(jobs_path);
             free(out_path);
 
             if (closedir(dir) == -1) {

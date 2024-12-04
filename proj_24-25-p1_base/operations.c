@@ -131,8 +131,8 @@ int kvs_show(int out_fd) {
     fprintf(stderr, "KVS state must be initialized\n");
     return 1;
   } 
-  
-  size_t pair_size = MAX_STRING_SIZE * 2 + 3;
+  //MUTEX WRITE
+  size_t pair_size = MAX_STRING_SIZE * 2 + 4;
   // TODO: verify if malloc size is correct
   char *buffer = (char *)safe_malloc(pair_size * TABLE_SIZE);
   buffer[0] = '\0';
@@ -149,7 +149,7 @@ int kvs_show(int out_fd) {
       keyNode = keyNode->next; // Move to the next node
     }
   }
-
+  //END MUTEX WRITE CRITIC ZONE
   if (write_to_file(out_fd, buffer) != 0) {
     free(buffer);
     return 1;
