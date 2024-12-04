@@ -67,13 +67,13 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Failed to open output file\n");
         return 1;
       }
-
-      while (1) {
+      fprintf(stdout, "Reading file: %s\n", dp->d_name);
+      int Nao_Fim = 1;
+      while (Nao_Fim) {
         char keys[MAX_WRITE_SIZE][MAX_STRING_SIZE] = {0};
         char values[MAX_WRITE_SIZE][MAX_STRING_SIZE] = {0};
         unsigned int delay;
         size_t num_pairs;
-
         switch (get_next(jobs_fd)) {
           case CMD_WRITE:
             num_pairs = parse_write(jobs_fd, keys, values, MAX_WRITE_SIZE, MAX_STRING_SIZE);
@@ -162,33 +162,25 @@ int main(int argc, char *argv[]) {
           case EOC:
             // TODO: make it less repetitive
             // Might solve itself when implementing threads
-            if (close(jobs_fd) == -1) {
-              fprintf(stderr, "Failed to close job file\n");
-              return 1;
-            }
-
-            if (close(out_fd) == -1) {
-              fprintf(stderr, "Failed to close output file\n");
-              return 1;
-            }
-
-            free(out_path);
-
-            if (closedir(dir) == -1) {
-              fprintf(stderr, "Failed to close directory\n");
-              return 1;
-            }
-
-            kvs_terminate();
-            return 0;
+            Nao_Fim = 0;
+            break;
         }
       }
+      if (close(jobs_fd) == -1) {
+          perror("Failed to close job file\n");
+          return 1;
+      }
+      if (close(out_fd) == -1) {
+        perror("Failed to close output file\n");
+        return 1;
+      }
+      free(out_path);
     }
   }
   if (closedir(dir) == -1) {
-    fprintf(stderr, "Failed to close directory\n");
-    return 1;
-  }
+      fprintf(stderr, "Failed to close directory\n");
+      return 1;
+    }
 
   kvs_terminate();
 }
