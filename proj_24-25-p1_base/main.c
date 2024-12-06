@@ -15,6 +15,7 @@
 int MAX_BACKUPS;
 int CURRENT_BACKUPS = 0;
 
+
 int main(int argc, char *argv[]) {
   if (argc != 3) {
     fprintf(stderr, "Usage: %s <dir_path> <MAX_BACKUPS>\n", argv[0]);
@@ -28,7 +29,10 @@ int main(int argc, char *argv[]) {
 
   //Get the arguments
   char *dir_path = argv[1];
-  MAX_BACKUPS = atoi(argv[2]);
+  if (sscanf(argv[2], "%d", &MAX_BACKUPS) != 1) {
+    fprintf(stderr, "Invalid MAX_BACKUPS value\n");
+    return 1;
+  }
 
   //Open the dir Path
   DIR *dir = opendir(dir_path);
@@ -48,22 +52,29 @@ int main(int argc, char *argv[]) {
   char jobs_path[PATH_MAX]; //For the build of path of file
 
   while ((dp = readdir(dir)) != NULL) {
+
+    //PATH CONSTRUCTOR
     snprintf(jobs_path, PATH_MAX, "%s/%s", dir_path, dp->d_name); //Builds the path to be used in stat(path, &sb)
     if (stat(jobs_path, &sb) == 0 && S_ISREG(sb.st_mode) && is_jobs_file(dp->d_name)) {
+      //VARIABLES
       size_t len = strlen(dir_path) + strlen(dp->d_name) + 2; // +2 for '/' and '\0'
+      int num_backups = 1;
+      int Nao_Fim = 1;
+      char out_path[PATH_MAX];
 
+      //FLAGS
+      int open_flags = O_WRONLY | O_CREAT | O_TRUNC;
+      mode_t file_perms = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH | S_IWGRP | S_IWOTH;
+
+      //FILE DESCRIPTORS
       int jobs_fd = open(jobs_path, O_RDONLY);
       if (jobs_fd == -1) {
         fprintf(stderr, "Failed to open job file\n");
         return 1;
       }
 
-      int open_flags = O_WRONLY | O_CREAT | O_TRUNC;
-      mode_t file_perms = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH | S_IWGRP | S_IWOTH;
-
-      char *out_path = (char*)safe_malloc(len);
-      memset(out_path, 0, len);
-      strncpy(out_path, jobs_path, len - 5);
+      strcpy(out_path, jobs_path);
+      out_path[len - 5] = '\0';
       strcat(out_path, ".out");
 
       int out_fd = open(out_path, open_flags, file_perms);
@@ -71,13 +82,14 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Failed to open output file\n");
         return 1;
       }
+
       fprintf(stdout, "Reading file: %s\n", dp->d_name);
-      int Nao_Fim = 1;
       while (Nao_Fim) {
         char keys[MAX_WRITE_SIZE][MAX_STRING_SIZE] = {0};
         char values[MAX_WRITE_SIZE][MAX_STRING_SIZE] = {0};
         unsigned int delay;
         size_t num_pairs;
+        char backup_path[PATH_MAX];
         switch (get_next(jobs_fd)) {
           case CMD_WRITE:
             num_pairs = parse_write(jobs_fd, keys, values, MAX_WRITE_SIZE, MAX_STRING_SIZE);
@@ -137,20 +149,29 @@ int main(int argc, char *argv[]) {
             break;
 
           case CMD_BACKUP:
-            fprintf(stderr, "BACKUP TIMMEEEEE\n");
-            
-            
-            //Forking to perform backup
-            int pid = fork();
-            
+            strncpy(backup_path, jobs_path, len - 5);
+            backup_path[len - 5] = '\0'; // Ensure null termination
+
+            char suffix[20];
+            snprintf(suffix, sizeof(suffix), "-%d.bck", num_backups);
+            strcat(backup_path, suffix);
+
+
+            num_backups++;
+            pid_t pid;
+
             if (MAX_BACKUPS == CURRENT_BACKUPS) {
-              fprintf(stderr, "Max number of backups reached\n");
-              break;
+              wait(NULL);
+              pid = fork();
+            }
+            else {
+              CURRENT_BACKUPS++;
+              pid = fork();
             }
 
+            // ECHILD && 
+
             if (pid == 0) {
-                char backup_path[PATH_MAX];
-                snprintf(backup_path, PATH_MAX, "%s/%s", dir_path, "backup.bck");
                 int bck_fd = open(backup_path, open_flags, file_perms);
 
                 if (kvs_backup(bck_fd)) {
@@ -204,13 +225,14 @@ int main(int argc, char *argv[]) {
         perror("Failed to close output file\n");
         return 1;
       }
-      free(out_path);
     }
   }
   if (closedir(dir) == -1) {
       fprintf(stderr, "Failed to close directory\n");
       return 1;
     }
+
+  while(wait(NULL) != -1 || errno != ECHILD) {}
 
   kvs_terminate();
 }

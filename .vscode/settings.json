@@ -1,0 +1,18 @@
+{
+    "files.associations": {
+        "unistd.h": "c",
+        "constants.h": "c",
+        "dirent.h": "c",
+        "limits.h": "c",
+        "string.h": "c",
+        "istream": "c",
+        "__locale": "c",
+        "iterator": "c",
+        "ios": "c",
+        "locale": "c",
+        "ostream": "c",
+        "sstream": "c",
+        "streambuf": "c",
+        "string": "c"
+    }
+}
