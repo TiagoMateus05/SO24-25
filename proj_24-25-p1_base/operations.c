@@ -3,6 +3,8 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <sys/types.h>
 
 #include "kvs.h"
 #include "constants.h"
@@ -159,8 +161,18 @@ int kvs_show(int out_fd) {
   return 0;
 }
 
-int kvs_backup() {
-  return 0;
+int kvs_backup(int fd) {
+    if (kvs_table == NULL) {
+        fprintf(stderr, "KVS state must be initialized\n");
+        return 1;
+    }
+    if (fd == -1) {
+        fprintf(stderr, "Failed to open backup file\n");
+        return 1;
+    }
+    
+    kvs_show(fd);
+    return 0;
 }
 
 void kvs_wait(unsigned int delay_ms) {

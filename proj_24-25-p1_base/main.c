@@ -13,6 +13,7 @@
 #include "operations.h"
 
 int MAX_BACKUPS;
+int CURRENT_BACKUPS = 0;
 
 int main(int argc, char *argv[]) {
   if (argc != 3) {
@@ -25,8 +26,11 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
+  //Get the arguments
   char *dir_path = argv[1];
-  //MAX_BACKUPS = argv[2];
+  MAX_BACKUPS = atoi(argv[2]);
+
+  //Open the dir Path
   DIR *dir = opendir(dir_path);
 
   if (dir == NULL) {
@@ -41,7 +45,7 @@ int main(int argc, char *argv[]) {
 
   //Structure to verify file type
   struct stat sb;
-  char jobs_path[PATH_MAX]; //For the build of the path of file
+  char jobs_path[PATH_MAX]; //For the build of path of file
 
   while ((dp = readdir(dir)) != NULL) {
     snprintf(jobs_path, PATH_MAX, "%s/%s", dir_path, dp->d_name); //Builds the path to be used in stat(path, &sb)
@@ -133,10 +137,36 @@ int main(int argc, char *argv[]) {
             break;
 
           case CMD_BACKUP:
-            if (kvs_backup()) {
-              fprintf(stderr, "Failed to perform backup.\n");
+            fprintf(stderr, "BACKUP TIMMEEEEE\n");
+            
+            
+            //Forking to perform backup
+            int pid = fork();
+            
+            if (MAX_BACKUPS == CURRENT_BACKUPS) {
+              fprintf(stderr, "Max number of backups reached\n");
+              break;
             }
-            break;
+
+            if (pid == 0) {
+                char backup_path[PATH_MAX];
+                snprintf(backup_path, PATH_MAX, "%s/%s", dir_path, "backup.bck");
+                int bck_fd = open(backup_path, open_flags, file_perms);
+
+                if (kvs_backup(bck_fd)) {
+                  fprintf(stderr, "Failed to perform backup.\n");
+                }
+
+                close(bck_fd);
+                exit(0);
+            }
+            else if (pid < 0) {
+              fprintf(stderr, "Failed to fork\n");
+              return 1;
+            }
+            else {
+              break;
+            }
 
           case CMD_INVALID:
             fprintf(stderr, "Invalid command. See HELP for usage\n");
