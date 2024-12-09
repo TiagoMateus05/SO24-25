@@ -7,10 +7,13 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include "constants.h"
 #include "kvs.h"
 #include "operations.h"
 #include "parser.h"
+#include "constants.h"
+
+int MAX_BACKUPS;
+int CURRENT_BACKUPS = 0;
 
 static struct HashTable* kvs_table = NULL;
 
@@ -21,6 +24,10 @@ static struct timespec delay_to_timespec(unsigned int delay_ms) {
   return (struct timespec){delay_ms / 1000, (delay_ms % 1000) * 1000000};
 }
 
+void setMaxBackups(int max) {
+  MAX_BACKUPS = max;
+}
+
 int kvs_init() {
   if (kvs_table != NULL) {
     fprintf(stderr, "KVS state has already been initialized\n");
@@ -28,6 +35,9 @@ int kvs_init() {
   }
 
   kvs_table = create_hash_table();
+  safe_rwlock_init(&(kvs_table->table_lock));
+  for (int i = 0; i < TABLE_SIZE; i++)
+    safe_rwlock_init(&(kvs_table->cell_locks[i]));
   return kvs_table == NULL;
 }
 
@@ -36,8 +46,9 @@ int kvs_terminate() {
     fprintf(stderr, "KVS state must be initialized\n");
     return 1;
   }
-
-  free_table(kvs_table);
+  safe_rwlock_destroy(&(kvs_table->table_lock));
+  for (int i = 0; i < TABLE_SIZE; i++)
+    safe_rwlock_destroy(&(kvs_table->cell_locks[i]));
   return 0;
 }
 
@@ -47,12 +58,13 @@ int kvs_write(size_t num_pairs, char keys[][MAX_STRING_SIZE], char values[][MAX_
     return 1;
   }
 
+  safe_rwlock_rdlock(&kvs_table->table_lock);
   for (size_t i = 0; i < num_pairs; i++) {
     if (write_pair(kvs_table, keys[i], values[i]) != 0) {
       fprintf(stderr, "Failed to write keypair (%s,%s)\n", keys[i], values[i]);
     }
   }
-
+  safe_rwlock_unlock(&kvs_table->table_lock);
   return 0;
 }
 
@@ -67,6 +79,8 @@ int kvs_read(size_t num_pairs, char keys[][MAX_STRING_SIZE], int out_fd) {
   buffer[0] = '\0';
 
   strcat(buffer, "[");
+
+  safe_rwlock_rdlock(&kvs_table->table_lock);
   for (size_t i = 0; i < num_pairs; i++) {
     char* result = read_pair(kvs_table, keys[i]);
     if (result == NULL) {
@@ -84,12 +98,12 @@ int kvs_read(size_t num_pairs, char keys[][MAX_STRING_SIZE], int out_fd) {
     free(result);
   }
   strcat(buffer, "]\n");
+  safe_rwlock_unlock(&kvs_table->table_lock);
 
   if (write_to_file(out_fd, buffer) != 0) {
     free(buffer);
     return 1;
   }
-
   free(buffer);
   return 0;
 }
@@ -105,6 +119,7 @@ int kvs_delete(size_t num_pairs, char keys[][MAX_STRING_SIZE], int out_fd) {
   buffer[0] = '\0';
   int aux = 0;
 
+  safe_rwlock_rdlock(&kvs_table->table_lock);
   for (size_t i = 0; i < num_pairs; i++) {
     if (delete_pair(kvs_table, keys[i]) != 0) {
       if (!aux) {
@@ -116,6 +131,7 @@ int kvs_delete(size_t num_pairs, char keys[][MAX_STRING_SIZE], int out_fd) {
       strcat(buffer, ",KVSMISSING)");
     }
   }
+  safe_rwlock_unlock(&kvs_table->table_lock);
   if (aux) {
     strcat(buffer, "]\n");
   }
@@ -134,9 +150,18 @@ int kvs_show(int out_fd) {
     fprintf(stderr, "KVS state must be initialized\n");
     return 1;
   } 
+
+  safe_rwlock_wrlock(&kvs_table->table_lock);
   //MUTEX WRITE
-  size_t pair_size = MAX_STRING_SIZE * 2 + 4;
-  char *buffer = (char *)safe_malloc(pair_size * TABLE_SIZE);
+  size_t buffer_size = 0;
+    for (int i = 0; i < TABLE_SIZE; i++) {
+        KeyNode *keyNode = kvs_table->table[i];
+        while (keyNode != NULL) {
+            buffer_size += strlen(keyNode->key) + strlen(keyNode->value) + 5; // 5 for "(", ",", ")\n" and null terminator
+            keyNode = keyNode->next;
+        }
+    }
+  char *buffer = (char *)safe_malloc(buffer_size + 1);
   buffer[0] = '\0';
 
   for (int i = 0; i < TABLE_SIZE; i++) {
@@ -151,6 +176,7 @@ int kvs_show(int out_fd) {
       keyNode = keyNode->next; // Move to the next node
     }
   }
+  safe_rwlock_unlock(&kvs_table->table_lock);
   //END MUTEX WRITE CRITIC ZONE
   if (write_to_file(out_fd, buffer) != 0) {
     free(buffer);
@@ -170,8 +196,34 @@ int kvs_backup(int fd) {
         fprintf(stderr, "Failed to open backup file\n");
         return 1;
     }
-    
-    kvs_show(fd);
+
+  size_t buffer_size = 0;
+    for (int i = 0; i < TABLE_SIZE; i++) {
+        KeyNode *keyNode = kvs_table->table[i];
+        while (keyNode != NULL) {
+            buffer_size += strlen(keyNode->key) + strlen(keyNode->value) + 5; // 5 for "(", ",", ")\n" and null terminator
+            keyNode = keyNode->next;
+        }
+    }
+  char *buffer = (char *)safe_malloc(buffer_size + 1);
+  buffer[0] = '\0';
+
+  for (int i = 0; i < TABLE_SIZE; i++) {
+    KeyNode *keyNode = kvs_table->table[i];
+    while (keyNode != NULL) {
+      strcat(buffer, "(");
+      strcat(buffer, keyNode->key);
+      strcat(buffer, ",");
+      strcat(buffer, keyNode->value);
+      strcat(buffer, ")\n");
+
+      keyNode = keyNode->next; // Move to the next node
+    }
+  }
+  if (write_to_file(fd, buffer) != 0) {
+    free(buffer);
+    return 1;
+  }
     return 0;
 }
 
@@ -191,6 +243,8 @@ void *thread_function(void *args) {
 
   int open_flags = O_WRONLY | O_CREAT | O_TRUNC;
   mode_t file_perms = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH | S_IWGRP | S_IWOTH;
+  int num_backups = 1;
+  size_t len = strlen(jobs_path);
 
   int jobs_fd = open(jobs_path, O_RDONLY);
   if (jobs_fd == -1) {
@@ -216,7 +270,7 @@ void *thread_function(void *args) {
     char values[MAX_WRITE_SIZE][MAX_STRING_SIZE] = {0};
     unsigned int delay;
     size_t num_pairs;
-    //char backup_path[PATH_MAX];
+    char backup_path[PATH_MAX];
 
     switch (get_next(jobs_fd)) {
       case CMD_WRITE:
@@ -277,14 +331,12 @@ void *thread_function(void *args) {
         break;
 
       case CMD_BACKUP:
-        /*strncpy(backup_path, jobs_path, len - 5);
-        backup_path[len - 5] = '\0'; // Ensure null termination
+        strncpy(backup_path, jobs_path, len - 4);
+        backup_path[len - 4] = '\0'; // Ensure null termination
 
         char suffix[20];
         snprintf(suffix, sizeof(suffix), "-%d.bck", num_backups);
         strcat(backup_path, suffix);
-
-
         num_backups++;
         pid_t pid;
 
@@ -307,10 +359,10 @@ void *thread_function(void *args) {
             exit(0);
         } else if (pid < 0) {
           fprintf(stderr, "Failed to fork\n");
-          return 1;
+          return NULL;
         } else {
           break;
-        } */
+        }
         break;
       case CMD_INVALID:
         fprintf(stderr, "Invalid command. See HELP for usage\n");
@@ -442,3 +494,10 @@ void safe_rwlock_destroy(pthread_rwlock_t *rwlock) {
   }
 }
 
+/*
+  WRITE - Bucket only (read table, write bucket) DONE
+  READ - Bucket only (read table, read bucket) DONE
+  DELETE - Bucket only (read table, write bucket) DONE
+  SHOW - Whole table (write table, -----) DONE
+  BACKUP - Nothing (-----, -----) DONE
+*/

@@ -1,5 +1,6 @@
 #include "kvs.h"
 #include "string.h"
+#include "operations.h"
 
 #include <stdlib.h>
 #include <ctype.h>
@@ -32,6 +33,7 @@ int write_pair(HashTable *ht, const char *key, const char *value) {
     int index = hash(key);
     KeyNode *keyNode = ht->table[index];
 
+    safe_rwlock_wrlock(&ht->cell_locks[index]);
     // Search for the key node
     while (keyNode != NULL) {
         if (strcmp(keyNode->key, key) == 0) {
@@ -48,26 +50,31 @@ int write_pair(HashTable *ht, const char *key, const char *value) {
     keyNode->value = strdup(value); // Allocate memory for the value
     keyNode->next = ht->table[index]; // Link to existing nodes
     ht->table[index] = keyNode; // Place new key node at the start of the list
+    safe_rwlock_unlock(&ht->cell_locks[index]);
     return 0;
 }
 
 char* read_pair(HashTable *ht, const char *key) {
     int index = hash(key);
+    safe_rwlock_rdlock(&ht->cell_locks[index]);
     KeyNode *keyNode = ht->table[index];
     char* value;
 
     while (keyNode != NULL) {
         if (strcmp(keyNode->key, key) == 0) {
             value = strdup(keyNode->value);
+            safe_rwlock_unlock(&ht->cell_locks[index]);
             return value; // Return copy of the value if found
         }
         keyNode = keyNode->next; // Move to the next node
     }
+    safe_rwlock_unlock(&ht->cell_locks[index]);
     return NULL; // Key not found
 }
 
 int delete_pair(HashTable *ht, const char *key) {
     int index = hash(key);
+    safe_rwlock_wrlock(&ht->cell_locks[index]);
     KeyNode *keyNode = ht->table[index];
     KeyNode *prevNode = NULL;
 
@@ -86,12 +93,13 @@ int delete_pair(HashTable *ht, const char *key) {
             free(keyNode->key);
             free(keyNode->value);
             free(keyNode); // Free the key node itself
+            safe_rwlock_unlock(&ht->cell_locks[index]);
             return 0; // Exit the function
         }
         prevNode = keyNode; // Move prevNode to current node
         keyNode = keyNode->next; // Move to the next node
     }
-    
+    safe_rwlock_unlock(&ht->cell_locks[index]);
     return 1;
 }
 

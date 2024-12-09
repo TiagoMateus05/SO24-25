@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
+#include <stdio.h>
 #include "constants.h"
 
 static int read_string(int fd, char *buffer, size_t max) {

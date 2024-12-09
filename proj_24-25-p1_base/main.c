@@ -10,16 +10,16 @@
 #include <sys/stat.h>   
 #include <unistd.h>  
 
-#include "constants.h"
 #include "parser.h"
 #include "operations.h"
+#include "constants.h"
 
-int MAX_BACKUPS;
+
 int MAX_THREADS;
-int CURRENT_BACKUPS = 0;
 int CURRENT_THREADS = 0;
 
 int main(int argc, char *argv[]) {
+
   if (argc != 4) {
     fprintf(stderr, "Usage: %s <dir_path> <MAX_BACKUPS> <MAX_THREADS>\n", argv[0]);
     return 1;
@@ -32,11 +32,13 @@ int main(int argc, char *argv[]) {
 
   //Get the arguments
   char *dir_path = argv[1];
-  
-  if (sscanf(argv[2], "%d", &MAX_BACKUPS) != 1) {
+  int max;
+  if (sscanf(argv[2], "%d", &max) != 1) {
     fprintf(stderr, "Invalid MAX_BACKUPS value\n");
     return 1;
   }
+
+  setMaxBackups(max);
 
   if (sscanf(argv[3], "%d", &MAX_THREADS) != 1) {
     fprintf(stderr, "Invalid MAX_THREADS value\n");
@@ -60,7 +62,7 @@ int main(int argc, char *argv[]) {
     threads_id[i] = i;
     threads[i] = 0;
   }
-  
+
   while ((dp = readdir(dir)) != NULL) {
     char jobs_path[PATH_MAX];
     snprintf(jobs_path, PATH_MAX, "%s/%s", dir_path, dp->d_name);
@@ -81,7 +83,7 @@ int main(int argc, char *argv[]) {
           threads[i] = 0;
           CURRENT_THREADS--;
         }
-      }    
+      }
       size_t len = strlen(dir_path) + strlen(dp->d_name) + 2; // +2 for '/' and '\0'
       struct thread_args *args = safe_malloc(sizeof(struct thread_args));
       args->id = threads_id[CURRENT_THREADS];

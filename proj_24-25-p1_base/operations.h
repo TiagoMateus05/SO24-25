@@ -5,6 +5,8 @@
 #include <pthread.h>
 #include <stddef.h>
 
+#include "constants.h"
+
 struct thread_args {
   int id;
   int MAX_THREADS;
@@ -13,6 +15,8 @@ struct thread_args {
 
   // add mutexes here
 };
+
+void setMaxBackups(int max);
 
 /// Initializes the KVS state.
 /// @return 0 if the KVS state was initialized successfully, 1 otherwise.

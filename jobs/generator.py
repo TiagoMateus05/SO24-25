@@ -68,8 +68,9 @@ def write_scripts(num_files=5, num_commands_per_file=10):
         file_path = os.path.join(script_dir, f"input{i}.job")
         with open(file_path, "w") as file:
             file.write(script)
+            file.write("\n")
         print(f"Generated script for {file_path}:")
         print(script)
 
 if __name__ == "__main__":
-    write_scripts(num_files=5, num_commands_per_file=20)
+    write_scripts(num_files=5, num_commands_per_file=60)

@@ -4,6 +4,7 @@
 #define TABLE_SIZE 26
 
 #include <stddef.h>
+#include <pthread.h>
 
 typedef struct KeyNode {
     char *key;
@@ -12,6 +13,8 @@ typedef struct KeyNode {
 } KeyNode;
 
 typedef struct HashTable {
+    pthread_rwlock_t table_lock;
+    pthread_rwlock_t cell_locks[TABLE_SIZE];
     KeyNode *table[TABLE_SIZE];
 } HashTable;
 
