@@ -1,7 +1,18 @@
 #ifndef KVS_OPERATIONS_H
 #define KVS_OPERATIONS_H
 
+#include <limits.h>
+#include <pthread.h>
 #include <stddef.h>
+
+struct thread_args {
+  int id;
+  int MAX_THREADS;
+  char jobs_path[PATH_MAX];
+  size_t path_len;
+
+  // add mutexes here
+};
 
 /// Initializes the KVS state.
 /// @return 0 if the KVS state was initialized successfully, 1 otherwise.
@@ -49,6 +60,10 @@ void kvs_wait_backup();
 /// @param delay_us Delay in milliseconds.
 void kvs_wait(unsigned int delay_ms);
 
+/// Thread function that processes the .jobs.
+/// @param args Arguments for the thread.
+void *thread_function(void *args);
+
 /// Checks if the file is a .jobs file.
 /// @param filename Name of the file.
 /// @return 1 if the file is a .jobs file, 0 otherwise.
@@ -64,5 +79,41 @@ int write_to_file(int fd, char *buffer);
 /// @param size 
 /// @return Pointer to the allocated memory.
 void *safe_malloc(size_t size);
+
+/// Initializes a mutex safely.
+/// @param mutex 
+void safe_mutex_init(pthread_mutex_t *mutex);
+
+/// Locks a mutex safely.
+/// @param mutex
+void safe_mutex_lock(pthread_mutex_t *mutex);
+
+/// Unlocks a mutex safely.
+/// @param mutex
+void safe_mutex_unlock(pthread_mutex_t *mutex);
+
+/// Destroys a mutex safely.
+/// @param mutex
+void safe_mutex_destroy(pthread_mutex_t *mutex);
+
+/// Initializes a rwlock safely.
+/// @param rwlock
+void safe_rwlock_init(pthread_rwlock_t *rwlock);
+
+/// Locks a rw_rdlock safely.
+/// @param rwlock
+void safe_rwlock_rdlock(pthread_rwlock_t *rwlock);
+
+/// Locks a rw_wrlock safely.
+/// @param rwlock
+void safe_rwlock_wrlock(pthread_rwlock_t *rwlock);
+
+/// Unlocks a rwlock safely.
+/// @param rwlock
+void safe_rwlock_unlock(pthread_rwlock_t *rwlock);
+
+/// Destroys a rwlock safely.
+/// @param rwlock
+void safe_rwlock_destroy(pthread_rwlock_t *rwlock);
 
 #endif  // KVS_OPERATIONS_H

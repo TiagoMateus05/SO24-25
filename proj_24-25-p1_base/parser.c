@@ -76,7 +76,7 @@ static int read_uint(int fd, unsigned int *value, char *next) {
   return 0;
 }
 
-static void cleanup(int fd) {
+void cleanup(int fd) {
   char ch;
   while (read(fd, &ch, 1) == 1 && ch != '\n')
     ;

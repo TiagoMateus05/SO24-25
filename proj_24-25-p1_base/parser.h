@@ -46,4 +46,8 @@ size_t parse_read_delete(int fd, char keys[][MAX_STRING_SIZE], size_t max_keys, 
 /// @return 0 if no thread was specified, 1 if a thread was specified, -1 on error.
 int parse_wait(int fd, unsigned int *delay, unsigned int *thread_id);
 
+/// Cleans up the file descriptor.
+/// @param fd 
+void cleanup(int fd);
+
 #endif  // KVS_PARSER_H
