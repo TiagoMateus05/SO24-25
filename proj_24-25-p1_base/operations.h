@@ -12,8 +12,6 @@ struct thread_args {
   int MAX_THREADS;
   char jobs_path[PATH_MAX];
   size_t path_len;
-
-  // add mutexes here
 };
 
 void setMaxBackups(int max);

@@ -113,9 +113,9 @@ int main(int argc, char *argv[]) {
   }
 
   if (closedir(dir) == -1) {
-      fprintf(stderr, "Failed to close directory\n");
-      return 1;
-    }
+    fprintf(stderr, "Failed to close directory\n");
+    return 1;
+  }
   
   while(wait(NULL) != -1 || errno != ECHILD) {}
 

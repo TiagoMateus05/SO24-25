@@ -4,6 +4,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/wait.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 
@@ -79,7 +80,6 @@ int kvs_read(size_t num_pairs, char keys[][MAX_STRING_SIZE], int out_fd) {
   buffer[0] = '\0';
 
   strcat(buffer, "[");
-
   safe_rwlock_rdlock(&kvs_table->table_lock);
   for (size_t i = 0; i < num_pairs; i++) {
     char* result = read_pair(kvs_table, keys[i]);
@@ -152,15 +152,15 @@ int kvs_show(int out_fd) {
   } 
 
   safe_rwlock_wrlock(&kvs_table->table_lock);
-  //MUTEX WRITE
+
   size_t buffer_size = 0;
-    for (int i = 0; i < TABLE_SIZE; i++) {
-        KeyNode *keyNode = kvs_table->table[i];
-        while (keyNode != NULL) {
-            buffer_size += strlen(keyNode->key) + strlen(keyNode->value) + 5; // 5 for "(", ",", ")\n" and null terminator
-            keyNode = keyNode->next;
-        }
+  for (int i = 0; i < TABLE_SIZE; i++) {
+    KeyNode *keyNode = kvs_table->table[i];
+    while (keyNode != NULL) {
+      buffer_size += strlen(keyNode->key) + strlen(keyNode->value) + 5; // 5 for "(", ",", ")\n" and null terminator
+      keyNode = keyNode->next;
     }
+  }
   char *buffer = (char *)safe_malloc(buffer_size + 1);
   buffer[0] = '\0';
 
@@ -176,8 +176,9 @@ int kvs_show(int out_fd) {
       keyNode = keyNode->next; // Move to the next node
     }
   }
+
   safe_rwlock_unlock(&kvs_table->table_lock);
-  //END MUTEX WRITE CRITIC ZONE
+
   if (write_to_file(out_fd, buffer) != 0) {
     free(buffer);
     return 1;
@@ -188,23 +189,23 @@ int kvs_show(int out_fd) {
 }
 
 int kvs_backup(int fd) {
-    if (kvs_table == NULL) {
-        fprintf(stderr, "KVS state must be initialized\n");
-        return 1;
-    }
-    if (fd == -1) {
-        fprintf(stderr, "Failed to open backup file\n");
-        return 1;
-    }
+  if (kvs_table == NULL) {
+      fprintf(stderr, "KVS state must be initialized\n");
+      return 1;
+  }
+  if (fd == -1) {
+      fprintf(stderr, "Failed to open backup file\n");
+      return 1;
+  }
 
   size_t buffer_size = 0;
-    for (int i = 0; i < TABLE_SIZE; i++) {
-        KeyNode *keyNode = kvs_table->table[i];
-        while (keyNode != NULL) {
-            buffer_size += strlen(keyNode->key) + strlen(keyNode->value) + 5; // 5 for "(", ",", ")\n" and null terminator
-            keyNode = keyNode->next;
-        }
+  for (int i = 0; i < TABLE_SIZE; i++) {
+    KeyNode *keyNode = kvs_table->table[i];
+    while (keyNode != NULL) {
+        buffer_size += strlen(keyNode->key) + strlen(keyNode->value) + 5; // 5 for "(", ",", ")\n" and null terminator
+        keyNode = keyNode->next;
     }
+  }
   char *buffer = (char *)safe_malloc(buffer_size + 1);
   buffer[0] = '\0';
 
@@ -224,7 +225,7 @@ int kvs_backup(int fd) {
     free(buffer);
     return 1;
   }
-    return 0;
+  return 0;
 }
 
 void kvs_wait(unsigned int delay_ms) {
@@ -349,16 +350,17 @@ void *thread_function(void *args) {
         }
 
         if (pid == 0) {
-            int bck_fd = open(backup_path, open_flags, file_perms);
+          int bck_fd = open(backup_path, open_flags, file_perms);
 
-            if (kvs_backup(bck_fd)) {
-              fprintf(stderr, "Failed to perform backup.\n");
-            }
+          if (kvs_backup(bck_fd)) {
+            fprintf(stderr, "Failed to perform backup.\n");
+          }
 
-            close(bck_fd);
-            exit(0);
+          close(bck_fd);
+          exit(0);
         } else if (pid < 0) {
           fprintf(stderr, "Failed to fork\n");
+          free(t_args);
           return NULL;
         } else {
           break;
@@ -388,11 +390,10 @@ void *thread_function(void *args) {
       case EOC:
         *ret = 0;
         exit_flag = 1;
-        break;
+
     }
-    if (exit_flag == 1) {
-      free(t_args);
-      return ret;
+    if (exit_flag) {
+      break;
     }
   }  
   free(t_args);

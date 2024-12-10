@@ -39,6 +39,7 @@ int write_pair(HashTable *ht, const char *key, const char *value) {
         if (strcmp(keyNode->key, key) == 0) {
             free(keyNode->value);
             keyNode->value = strdup(value);
+            safe_rwlock_unlock(&ht->cell_locks[index]);
             return 0;
         }
         keyNode = keyNode->next; // Move to the next node
