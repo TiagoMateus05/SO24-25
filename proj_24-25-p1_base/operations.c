@@ -15,6 +15,7 @@
 
 int MAX_BACKUPS;
 int CURRENT_BACKUPS = 0;
+pthread_rwlock_t global_lock = PTHREAD_RWLOCK_INITIALIZER;
 
 static struct HashTable* kvs_table = NULL;
 
@@ -206,9 +207,10 @@ int kvs_backup(int fd) {
         keyNode = keyNode->next;
     }
   }
+  fprintf(stderr, "Started Seeing Table\n");
   char *buffer = (char *)safe_malloc(buffer_size + 1);
   buffer[0] = '\0';
-
+  fprintf(stderr, "A\n");
   for (int i = 0; i < TABLE_SIZE; i++) {
     KeyNode *keyNode = kvs_table->table[i];
     while (keyNode != NULL) {
@@ -221,10 +223,14 @@ int kvs_backup(int fd) {
       keyNode = keyNode->next; // Move to the next node
     }
   }
+  fprintf(stderr, "Finished See Table\n");
   if (write_to_file(fd, buffer) != 0) {
     free(buffer);
     return 1;
   }
+  fprintf(stderr, "Finished Writting\n");
+  free(buffer);
+  fprintf(stderr, "Finish Backup\n");
   return 0;
 }
 
@@ -332,6 +338,7 @@ void *thread_function(void *args) {
         break;
 
       case CMD_BACKUP:
+      fprintf(stderr, "start backup\n");
         strncpy(backup_path, jobs_path, len - 4);
         backup_path[len - 4] = '\0'; // Ensure null termination
 
@@ -339,9 +346,13 @@ void *thread_function(void *args) {
         snprintf(suffix, sizeof(suffix), "-%d.bck", num_backups);
         strcat(backup_path, suffix);
         num_backups++;
+	
+	      fprintf(stderr, "Making New Process of %d of %s\n", num_backups, jobs_path);
         pid_t pid;
-
+	      safe_rwlock_wrlock(&global_lock);
+	      fprintf(stderr, "Checking current backups with current backups: %d\n", CURRENT_BACKUPS);
         if (MAX_BACKUPS == CURRENT_BACKUPS) {
+	      fprintf(stderr, "Waiting for Child to fork\n");
           wait(NULL);
           pid = fork();
         } else {
@@ -350,13 +361,13 @@ void *thread_function(void *args) {
         }
 
         if (pid == 0) {
+          fprintf(stderr, "Open .bck\n");
           int bck_fd = open(backup_path, open_flags, file_perms);
-
-          if (kvs_backup(bck_fd)) {
-            fprintf(stderr, "Failed to perform backup.\n");
-          }
-
+          fprintf(stderr, "Backup Function\n");
+          kvs_backup(bck_fd);
+          fprintf(stderr, "Finished Backing up\n");
           close(bck_fd);
+	        fprintf(stderr, "Quiting Child\n");
           exit(0);
         } else if (pid < 0) {
           fprintf(stderr, "Failed to fork\n");
@@ -365,6 +376,7 @@ void *thread_function(void *args) {
         } else {
           break;
         }
+	      safe_rwlock_unlock(&global_lock);
         break;
       case CMD_INVALID:
         fprintf(stderr, "Invalid command. See HELP for usage\n");

@@ -99,7 +99,7 @@ int main(int argc, char *argv[]) {
       CURRENT_THREADS++;
     }  
   }
-
+  fprintf(stderr, "here2\n");
   for (int i = 0; i < CURRENT_THREADS; i++) {
     if (threads[i] == 0) {
       continue;
@@ -111,6 +111,8 @@ int main(int argc, char *argv[]) {
     } 
     free(ret);
   }
+
+  fprintf(stderr, "here\n");
 
   if (closedir(dir) == -1) {
     fprintf(stderr, "Failed to close directory\n");
