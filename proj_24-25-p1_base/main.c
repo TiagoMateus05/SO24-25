@@ -67,6 +67,7 @@ int main(int argc, char *argv[]) {
     char jobs_path[PATH_MAX];
     snprintf(jobs_path, PATH_MAX, "%s/%s", dir_path, dp->d_name);
 
+
     struct stat sb;
     if (stat(jobs_path, &sb) == 0 && S_ISREG(sb.st_mode) && is_jobs_file(dp->d_name)) {
       while (CURRENT_THREADS >= MAX_THREADS) {
@@ -89,7 +90,7 @@ int main(int argc, char *argv[]) {
       args->id = threads_id[CURRENT_THREADS];
       strncpy(args->jobs_path, jobs_path, PATH_MAX);
       args->path_len = len;
-
+      fprintf(stderr, "Checking %s\n", jobs_path);
       if (pthread_create(&threads[CURRENT_THREADS], NULL, thread_function, 
       args) != 0) {
         fprintf(stderr, "Failed to create thread\n");
@@ -100,6 +101,9 @@ int main(int argc, char *argv[]) {
     }  
   }
   fprintf(stderr, "here2\n");
+
+  while(wait(NULL) != -1 || errno != ECHILD) {}
+  
   for (int i = 0; i < CURRENT_THREADS; i++) {
     if (threads[i] == 0) {
       continue;
@@ -118,8 +122,6 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "Failed to close directory\n");
     return 1;
   }
-  
-  while(wait(NULL) != -1 || errno != ECHILD) {}
 
   kvs_terminate();
 }

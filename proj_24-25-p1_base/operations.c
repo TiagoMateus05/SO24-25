@@ -12,6 +12,8 @@
 #include "operations.h"
 #include "parser.h"
 #include "constants.h"
+#include <bits/pthreadtypes.h>
+#include <pthread.h>
 
 int MAX_BACKUPS;
 int CURRENT_BACKUPS = 0;
@@ -189,6 +191,58 @@ int kvs_show(int out_fd) {
   return 0;
 }
 
+int backupHandler(int num_backups, char *jobs_path, int open_flags, mode_t file_perms, size_t len, char *backup_path) {
+  strncpy(backup_path, jobs_path, len - 4);
+  backup_path[len - 4] = '\0'; // Ensure null termination
+
+  char suffix[20];
+  snprintf(suffix, sizeof(suffix), "-%d.bck", num_backups);
+  strcat(backup_path, suffix);
+
+  pid_t pid;
+
+  safe_rwlock_wrlock(&global_lock);
+  safe_rwlock_wrlock(&kvs_table->table_lock);
+  if (CURRENT_BACKUPS >= MAX_BACKUPS) {
+    safe_rwlock_unlock(&global_lock);
+    safe_rwlock_unlock(&kvs_table->table_lock);
+    wait(NULL);
+    pid = fork();
+  }
+  else {
+    pid = fork();
+    CURRENT_BACKUPS++;
+    safe_rwlock_unlock(&global_lock);
+    safe_rwlock_unlock(&kvs_table->table_lock);
+  }
+
+  if (pid == 0) {
+    // Child process
+    int backup_fd = open(backup_path, open_flags, file_perms);
+    if (backup_fd == -1) {
+        fprintf(stderr, "Failed to open backup file\n");
+        exit(1);
+    }
+
+    if (kvs_backup(backup_fd) != 0) {
+        close(backup_fd);
+        exit(1);
+    }
+
+    close(backup_fd);
+    exit(0);
+  } else if (pid < 0) {
+    // Fork failed
+    fprintf(stderr, "Failed to fork\n");
+    safe_rwlock_wrlock(&global_lock);
+    CURRENT_BACKUPS--;
+    safe_rwlock_unlock(&global_lock);
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
 int kvs_backup(int fd) {
   if (kvs_table == NULL) {
       fprintf(stderr, "KVS state must be initialized\n");
@@ -207,10 +261,8 @@ int kvs_backup(int fd) {
         keyNode = keyNode->next;
     }
   }
-  fprintf(stderr, "Started Seeing Table\n");
   char *buffer = (char *)safe_malloc(buffer_size + 1);
   buffer[0] = '\0';
-  fprintf(stderr, "A\n");
   for (int i = 0; i < TABLE_SIZE; i++) {
     KeyNode *keyNode = kvs_table->table[i];
     while (keyNode != NULL) {
@@ -223,14 +275,11 @@ int kvs_backup(int fd) {
       keyNode = keyNode->next; // Move to the next node
     }
   }
-  fprintf(stderr, "Finished See Table\n");
   if (write_to_file(fd, buffer) != 0) {
     free(buffer);
     return 1;
   }
-  fprintf(stderr, "Finished Writting\n");
   free(buffer);
-  fprintf(stderr, "Finish Backup\n");
   return 0;
 }
 
@@ -338,45 +387,8 @@ void *thread_function(void *args) {
         break;
 
       case CMD_BACKUP:
-      fprintf(stderr, "start backup\n");
-        strncpy(backup_path, jobs_path, len - 4);
-        backup_path[len - 4] = '\0'; // Ensure null termination
-
-        char suffix[20];
-        snprintf(suffix, sizeof(suffix), "-%d.bck", num_backups);
-        strcat(backup_path, suffix);
+        backupHandler(num_backups, jobs_path, open_flags, file_perms, len, backup_path);
         num_backups++;
-	
-	      fprintf(stderr, "Making New Process of %d of %s\n", num_backups, jobs_path);
-        pid_t pid;
-	      safe_rwlock_wrlock(&global_lock);
-	      fprintf(stderr, "Checking current backups with current backups: %d\n", CURRENT_BACKUPS);
-        if (MAX_BACKUPS == CURRENT_BACKUPS) {
-	      fprintf(stderr, "Waiting for Child to fork\n");
-          wait(NULL);
-          pid = fork();
-        } else {
-          CURRENT_BACKUPS++;
-          pid = fork();
-        }
-
-        if (pid == 0) {
-          fprintf(stderr, "Open .bck\n");
-          int bck_fd = open(backup_path, open_flags, file_perms);
-          fprintf(stderr, "Backup Function\n");
-          kvs_backup(bck_fd);
-          fprintf(stderr, "Finished Backing up\n");
-          close(bck_fd);
-	        fprintf(stderr, "Quiting Child\n");
-          exit(0);
-        } else if (pid < 0) {
-          fprintf(stderr, "Failed to fork\n");
-          free(t_args);
-          return NULL;
-        } else {
-          break;
-        }
-	      safe_rwlock_unlock(&global_lock);
         break;
       case CMD_INVALID:
         fprintf(stderr, "Invalid command. See HELP for usage\n");
