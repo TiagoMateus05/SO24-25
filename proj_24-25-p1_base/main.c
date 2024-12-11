@@ -90,7 +90,6 @@ int main(int argc, char *argv[]) {
       args->id = threads_id[CURRENT_THREADS];
       strncpy(args->jobs_path, jobs_path, PATH_MAX);
       args->path_len = len;
-      fprintf(stderr, "Checking %s\n", jobs_path);
       if (pthread_create(&threads[CURRENT_THREADS], NULL, thread_function, 
       args) != 0) {
         fprintf(stderr, "Failed to create thread\n");
@@ -100,7 +99,6 @@ int main(int argc, char *argv[]) {
       CURRENT_THREADS++;
     }  
   }
-  fprintf(stderr, "here2\n");
 
   while(wait(NULL) != -1 || errno != ECHILD) {}
   
@@ -115,8 +113,6 @@ int main(int argc, char *argv[]) {
     } 
     free(ret);
   }
-
-  fprintf(stderr, "here\n");
 
   if (closedir(dir) == -1) {
     fprintf(stderr, "Failed to close directory\n");
