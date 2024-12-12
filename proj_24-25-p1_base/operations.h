@@ -4,6 +4,7 @@
 #include <limits.h>
 #include <pthread.h>
 #include <stddef.h>
+#include <sys/types.h>
 
 #include "constants.h"
 
@@ -13,8 +14,6 @@ struct thread_args {
   char jobs_path[PATH_MAX];
   size_t path_len;
 };
-
-void setMaxBackups(int max);
 
 /// Initializes the KVS state.
 /// @return 0 if the KVS state was initialized successfully, 1 otherwise.
@@ -55,8 +54,12 @@ int kvs_show(int fd);
 /// @return 0 if the backup was successful, 1 otherwise.
 int kvs_backup(int fd);
 
-/// Waits for the last backup to be called.
-void kvs_wait_backup();
+/// Handles the backup of the KVS state.
+/// @param num_backups Number of backups.
+/// @param jobs_path Path to the .jobs file.
+/// @param path_len Length of the backup path.
+/// @return 0 if the backup was successful, 1 otherwise.
+int backup_handler(int num_backups, char *jobs_path, size_t len);
 
 /// Waits for a given amount of time.
 /// @param delay_us Delay in milliseconds.
@@ -70,6 +73,10 @@ void *thread_function(void *args);
 /// @param filename Name of the file.
 /// @return 1 if the file is a .jobs file, 0 otherwise.
 int is_jobs_file(const char *filename);
+
+/// Sets the maximum number of backups.
+/// @param max Maximum number of backups.
+void set_max_backups(int max);
 
 /// Writes the buffer to the file descriptor.
 /// @param fd File descriptor of the file.

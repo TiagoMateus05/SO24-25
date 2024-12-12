@@ -38,7 +38,7 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  setMaxBackups(max);
+  set_max_backups(max);
 
   if (sscanf(argv[3], "%d", &MAX_THREADS) != 1) {
     fprintf(stderr, "Invalid MAX_THREADS value\n");

@@ -1,22 +1,18 @@
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
-#include <fcntl.h>
-#include <sys/wait.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 
 #include "kvs.h"
 #include "operations.h"
 #include "parser.h"
-#include "constants.h"
-#include <bits/pthreadtypes.h>
-#include <pthread.h>
 
 int MAX_BACKUPS;
-int CURRENT_BACKUPS = 0;
+int current_backups = 0;
 pthread_rwlock_t global_lock = PTHREAD_RWLOCK_INITIALIZER;
 
 static struct HashTable* kvs_table = NULL;
@@ -26,10 +22,6 @@ static struct HashTable* kvs_table = NULL;
 /// @return Timespec with the given delay.
 static struct timespec delay_to_timespec(unsigned int delay_ms) {
   return (struct timespec){delay_ms / 1000, (delay_ms % 1000) * 1000000};
-}
-
-void setMaxBackups(int max) {
-  MAX_BACKUPS = max;
 }
 
 int kvs_init() {
@@ -164,6 +156,7 @@ int kvs_show(int out_fd) {
       keyNode = keyNode->next;
     }
   }
+
   char *buffer = (char *)safe_malloc(buffer_size + 1);
   buffer[0] = '\0';
 
@@ -191,7 +184,10 @@ int kvs_show(int out_fd) {
   return 0;
 }
 
-int backupHandler(int num_backups, char *jobs_path, int open_flags, mode_t file_perms, size_t len, char *backup_path) {
+int backup_handler(int num_backups, char *jobs_path, size_t len) {
+  int open_flags = O_WRONLY | O_CREAT | O_TRUNC;
+  mode_t file_perms = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH | S_IWGRP | S_IWOTH;
+  char backup_path[PATH_MAX];
   strncpy(backup_path, jobs_path, len - 4);
   backup_path[len - 4] = '\0'; // Ensure null termination
 
@@ -203,7 +199,7 @@ int backupHandler(int num_backups, char *jobs_path, int open_flags, mode_t file_
 
   safe_rwlock_wrlock(&global_lock);
   safe_rwlock_wrlock(&kvs_table->table_lock);
-  if (CURRENT_BACKUPS >= MAX_BACKUPS) {
+  if (current_backups >= MAX_BACKUPS) {
     safe_rwlock_unlock(&global_lock);
     safe_rwlock_unlock(&kvs_table->table_lock);
     wait(NULL);
@@ -211,7 +207,7 @@ int backupHandler(int num_backups, char *jobs_path, int open_flags, mode_t file_
   }
   else {
     pid = fork();
-    CURRENT_BACKUPS++;
+    current_backups++;
     safe_rwlock_unlock(&global_lock);
     safe_rwlock_unlock(&kvs_table->table_lock);
   }
@@ -235,7 +231,7 @@ int backupHandler(int num_backups, char *jobs_path, int open_flags, mode_t file_
     // Fork failed
     fprintf(stderr, "Failed to fork\n");
     safe_rwlock_wrlock(&global_lock);
-    CURRENT_BACKUPS--;
+    current_backups--;
     safe_rwlock_unlock(&global_lock);
     return 1;
   } else {
@@ -300,7 +296,6 @@ void *thread_function(void *args) {
   int open_flags = O_WRONLY | O_CREAT | O_TRUNC;
   mode_t file_perms = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH | S_IWGRP | S_IWOTH;
   int num_backups = 1;
-  size_t len = strlen(jobs_path);
 
   int jobs_fd = open(jobs_path, O_RDONLY);
   if (jobs_fd == -1) {
@@ -326,7 +321,6 @@ void *thread_function(void *args) {
     char values[MAX_WRITE_SIZE][MAX_STRING_SIZE] = {0};
     unsigned int delay;
     size_t num_pairs;
-    char backup_path[PATH_MAX];
 
     switch (get_next(jobs_fd)) {
       case CMD_WRITE:
@@ -387,7 +381,7 @@ void *thread_function(void *args) {
         break;
 
       case CMD_BACKUP:
-        backupHandler(num_backups, jobs_path, open_flags, file_perms, len, backup_path);
+        backup_handler(num_backups, jobs_path, t_args->path_len);
         num_backups++;
         break;
       case CMD_INVALID:
@@ -425,8 +419,13 @@ void *thread_function(void *args) {
 }
 
 // Auxiliary functions 
+
 int is_jobs_file(const char *filename) {
   return strlen(filename) > 4 && !strcmp(filename + strlen(filename) - 4, ".job");
+}
+
+void set_max_backups(int max) {
+  MAX_BACKUPS = max;
 }
 
 int write_to_file(int fd, char *buffer) {
@@ -518,11 +517,3 @@ void safe_rwlock_destroy(pthread_rwlock_t *rwlock) {
     exit(EXIT_FAILURE);
   }
 }
-
-/*
-  WRITE - Bucket only (read table, write bucket) DONE
-  READ - Bucket only (read table, read bucket) DONE
-  DELETE - Bucket only (read table, write bucket) DONE
-  SHOW - Whole table (write table, -----) DONE
-  BACKUP - Nothing (-----, -----) DONE
-*/
