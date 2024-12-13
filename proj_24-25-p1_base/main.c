@@ -67,22 +67,20 @@ int main(int argc, char *argv[]) {
     char jobs_path[PATH_MAX];
     snprintf(jobs_path, PATH_MAX, "%s/%s", dir_path, dp->d_name);
 
-
     struct stat sb;
     if (stat(jobs_path, &sb) == 0 && S_ISREG(sb.st_mode) && is_jobs_file(dp->d_name)) {
-      while (CURRENT_THREADS >= MAX_THREADS) {
+      if (CURRENT_THREADS >= MAX_THREADS) {
         for (int i = 0; i < MAX_THREADS; i++) {
-          if (threads[i] == 0) {
-            continue;
-          }
-          if (pthread_join(threads[i], &ret) != 0) {
-            fprintf(stderr, "Failed to join thread\n");
+          if (threads[i] != 0) {
+            if (pthread_join(threads[i], &ret) != 0) {
+              fprintf(stderr, "Failed to join thread\n");
+              free(ret);
+              return 1;
+            }
             free(ret);
-            return 1;
+            threads[i] = 0;
+            CURRENT_THREADS--;
           }
-          free(ret);
-          threads[i] = 0;
-          CURRENT_THREADS--;
         }
       }
       size_t len = strlen(dir_path) + strlen(dp->d_name) + 2; // +2 for '/' and '\0'
