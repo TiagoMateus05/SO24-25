@@ -34,7 +34,7 @@ def generate_show_command():
 def generate_script(num_commands=10):
     commands = []
     for _ in range(num_commands):
-        command_type = random.choice(['READ', 'WRITE', 'DELETE', 'SHOW'])
+        command_type = random.choice(['READ', 'WRITE', 'DELETE', 'BACKUP', 'SHOW'])
         if command_type == 'READ':
             commands.append(generate_read_command())
         elif command_type == 'WRITE':
