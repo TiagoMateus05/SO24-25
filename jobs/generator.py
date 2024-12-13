@@ -73,4 +73,4 @@ def write_scripts(num_files=5, num_commands_per_file=10):
         print(script)
 
 if __name__ == "__main__":
-    write_scripts(num_files=100, num_commands_per_file=20)
+    write_scripts(num_files=10, num_commands_per_file=200)

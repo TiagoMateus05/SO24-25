@@ -54,10 +54,30 @@ int kvs_write(size_t num_pairs, char keys[][MAX_STRING_SIZE], char values[][MAX_
     return 1;
   }
 
+  order_write(keys, num_pairs);
+
   safe_rwlock_rdlock(&kvs_table->table_lock);
+  int temp_index = hash(keys[0]);
+  safe_rwlock_rdlock(&kvs_table->cell_locks[temp_index]);
+  for (size_t i = 1; i < num_pairs; i++) {
+    if (hash(keys[i]) != temp_index) {
+      temp_index = hash(keys[i]);
+      safe_rwlock_rdlock(&kvs_table->cell_locks[temp_index]);
+    }
+  }
+
   for (size_t i = 0; i < num_pairs; i++) {
     if (write_pair(kvs_table, keys[i], values[i]) != 0) {
       fprintf(stderr, "Failed to write keypair (%s,%s)\n", keys[i], values[i]);
+    }
+  }
+
+  temp_index = hash(keys[0]);
+  safe_rwlock_unlock(&kvs_table->cell_locks[temp_index]);
+  for (size_t i = 0; i < num_pairs; i++) {
+    if (hash(keys[i]) != temp_index) {
+      temp_index = hash(keys[i]);
+      safe_rwlock_unlock(&kvs_table->cell_locks[temp_index]);
     }
   }
   safe_rwlock_unlock(&kvs_table->table_lock);
@@ -71,11 +91,22 @@ int kvs_read(size_t num_pairs, char keys[][MAX_STRING_SIZE], int out_fd) {
   }
   size_t pair_size = MAX_STRING_SIZE * 2 + 3;
 
+  order_read_delete(keys, num_pairs);
+
+  safe_rwlock_rdlock(&kvs_table->table_lock);
+  int temp_index = hash(keys[0]);
+  safe_rwlock_rdlock(&kvs_table->cell_locks[temp_index]);
+  for (size_t i = 1; i < num_pairs; i++) {
+    if (hash(keys[i]) != temp_index) {
+      temp_index = hash(keys[i]);
+      safe_rwlock_rdlock(&kvs_table->cell_locks[temp_index]);
+    }
+  }
+
   char *buffer = (char *)safe_malloc(MAX_STRING_SIZE * pair_size * num_pairs + 2); 
   buffer[0] = '\0';
 
   strcat(buffer, "[");
-  safe_rwlock_rdlock(&kvs_table->table_lock);
   for (size_t i = 0; i < num_pairs; i++) {
     char* result = read_pair(kvs_table, keys[i]);
     if (result == NULL) {
@@ -83,7 +114,6 @@ int kvs_read(size_t num_pairs, char keys[][MAX_STRING_SIZE], int out_fd) {
       strcat(buffer, keys[i]);
       strcat(buffer, ",KVSERROR)");
     } else {
-      
       strcat(buffer, "(");
       strcat(buffer, keys[i]);
       strcat(buffer, ",");
@@ -93,6 +123,15 @@ int kvs_read(size_t num_pairs, char keys[][MAX_STRING_SIZE], int out_fd) {
     free(result);
   }
   strcat(buffer, "]\n");
+
+  temp_index = hash(keys[0]);
+  safe_rwlock_unlock(&kvs_table->cell_locks[temp_index]);
+  for (size_t i = 0; i < num_pairs; i++) {
+    if (hash(keys[i]) != temp_index) {
+      temp_index = hash(keys[i]);
+      safe_rwlock_unlock(&kvs_table->cell_locks[temp_index]);
+    }
+  }
   safe_rwlock_unlock(&kvs_table->table_lock);
 
   if (write_to_file(out_fd, buffer) != 0) {
@@ -109,12 +148,23 @@ int kvs_delete(size_t num_pairs, char keys[][MAX_STRING_SIZE], int out_fd) {
     return 1;
   }
 
+  order_read_delete(keys, num_pairs);
+
+  safe_rwlock_rdlock(&kvs_table->table_lock);
+  int temp_index = hash(keys[0]);
+  safe_rwlock_wrlock(&kvs_table->cell_locks[temp_index]);
+  for (size_t i = 1; i < num_pairs; i++) {
+    if (hash(keys[i]) != temp_index) {
+      temp_index = hash(keys[i]);
+      safe_rwlock_wrlock(&kvs_table->cell_locks[temp_index]);
+    }
+  }
+
   size_t pair_size = MAX_STRING_SIZE * 2 + 3;
   char *buffer = (char *)safe_malloc(MAX_STRING_SIZE * pair_size * num_pairs + 2);
   buffer[0] = '\0';
   int aux = 0;
 
-  safe_rwlock_rdlock(&kvs_table->table_lock);
   for (size_t i = 0; i < num_pairs; i++) {
     if (delete_pair(kvs_table, keys[i]) != 0) {
       if (!aux) {
@@ -126,6 +176,16 @@ int kvs_delete(size_t num_pairs, char keys[][MAX_STRING_SIZE], int out_fd) {
       strcat(buffer, ",KVSMISSING)");
     }
   }
+
+  temp_index = hash(keys[0]);
+  safe_rwlock_unlock(&kvs_table->cell_locks[temp_index]);
+  for (size_t i = 0; i < num_pairs; i++) {
+    if (hash(keys[i]) != temp_index) {
+      temp_index = hash(keys[i]);
+      safe_rwlock_unlock(&kvs_table->cell_locks[temp_index]);
+    }
+  }
+
   safe_rwlock_unlock(&kvs_table->table_lock);
   if (aux) {
     strcat(buffer, "]\n");
@@ -444,6 +504,27 @@ int write_to_file(int fd, char *buffer) {
   }
 
   return 0;
+}
+
+int compare_read_delete(const void *a, const void *b) {
+    const char *str1 = (const char *)a;
+    const char *str2 = (const char *)b;
+    return strcmp(str1, str2);
+}
+
+void order_read_delete(char buffer[][MAX_STRING_SIZE], size_t num_pairs) {
+    qsort(buffer, num_pairs, MAX_STRING_SIZE, compare_read_delete);
+}
+
+int compare_write(const void *a, const void *b) {
+    const char *str1 = (const char *)a;
+    const char *str2 = (const char *)b;
+
+    return strcmp(str1, str2);
+}
+
+void order_write(char buffer[][MAX_STRING_SIZE], size_t num_pairs) {
+    qsort(buffer, num_pairs, MAX_STRING_SIZE, compare_write);
 }
 
 void *safe_malloc(size_t size) {

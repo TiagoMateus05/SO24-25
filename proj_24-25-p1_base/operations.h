@@ -74,6 +74,14 @@ void *thread_function(void *args);
 /// @return 1 if the file is a .jobs file, 0 otherwise.
 int is_jobs_file(const char *filename);
 
+/// Orders buffer for read and delete operations.
+/// @param buffer Buffer to be ordered.
+void order_read_delete(char buffer[][MAX_STRING_SIZE], size_t num_pairs);
+
+/// Orders buffer for write operations.
+/// @param buffer Buffer to be ordered.
+void order_write(char buffer[][MAX_STRING_SIZE], size_t num_pairs);
+
 /// Sets the maximum number of backups.
 /// @param max Maximum number of backups.
 void set_max_backups(int max);

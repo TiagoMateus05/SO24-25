@@ -1,0 +1,5 @@
+WRITE [(aaa,adeus)(banana,laranja)(aba,pera)(a,a)(bbbbbbbbbbbbbbbbbbbbbb,vsfa)(c,m)]
+DELETE [aaa,banana,ccccc,bbbb,c]
+READ [banana,aa,aba]
+READ []
+BACKUP
