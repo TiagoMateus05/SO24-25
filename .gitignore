@@ -1,2 +1,8 @@
 *.DS
 *.DS_Store
+src/client/client
+src/client/client_write
+src/server/ems
+*.o
+*.out
+.vscode
