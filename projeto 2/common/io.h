@@ -24,4 +24,28 @@ int write_all(int fd, const void *buffer, size_t size);
 
 void delay(unsigned int time_ms);
 
+/// Safely allocates memory using malloc.
+/// @param size Size of the memory to allocate.
+/// @return Pointer to the allocated memory.
+void *safe_malloc(size_t size);
+
+/// Safely opens a file.
+/// @param pathname Path to the file to open.
+/// @param flags Flags to pass to open.
+/// @return File descriptor on success.
+int safe_open(const char *pathname, int flags);
+
+/// Safely closes a file descriptor.
+/// @param fd File descriptor to close.
+void safe_close(int fd);
+
+/// Safely unlinks a file.
+/// @param pathname Path to the file to unlink.
+void safe_unlink(const char *pathname);
+
+// Opens a FIFO with the given pathname and flags.
+/// @param pathname Path to the FIFO to open.
+/// @param flags Flags to pass to open.
+void open_fifo(const char *pathname, int flags);
+
 #endif  // COMMON_IO_H

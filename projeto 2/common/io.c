@@ -78,4 +78,43 @@ void delay(unsigned int time_ms) {
     nanosleep(&delay, NULL);
 }
 
+void *safe_malloc(size_t size) {
+    void *ptr = malloc(size);
+    if (ptr == NULL) {
+        fprintf(stderr, "Failed to allocate memory\n");
+        exit(EXIT_FAILURE);
+    }
+    return ptr;
+}
 
+int safe_open(const char *path, int flags) {
+    int fd = open(path, flags);
+    if (fd == -1) {
+        fprintf(stderrr, "Failed to open file\n");
+        exit(EXIT_FAILURE);
+    }
+    return fd;
+}
+
+void safe_close(int fd) {
+    if (close(fd) == -1) {
+        fprintf(stderr, "Failed to close file\n");
+    }
+}
+
+void safe_unlink(const char *path) {
+    if (unlink(path) == -1 && errno != ENOENT) {
+        fprintf(stderr, "Failed to unlink %s: %s\n", path, strerror(errno));
+    }
+}
+
+void open_fifo(const char *path, mode_t mode) {
+  safe_unlink(path);
+
+  if (mkfifo(path, mode) != 0) {
+    fprintf(stderr, "Failed to create FIFO %s: %s\n", path, strerror(errno));
+    exit(EXIT_FAILURE);
+  }
+
+  fprintf(stdout, "Created FIFO %s\n", path);
+}
