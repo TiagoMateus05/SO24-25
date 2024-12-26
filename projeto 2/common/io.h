@@ -2,6 +2,7 @@
 #define COMMON_IO_H
 
 #include <stddef.h>
+#include <sys/types.h>
 
 /// Reads a given number of bytes from a file descriptor. Will block until all
 /// bytes are read, or fail if not all bytes could be read.
@@ -46,6 +47,6 @@ void safe_unlink(const char *pathname);
 // Opens a FIFO with the given pathname and flags.
 /// @param pathname Path to the FIFO to open.
 /// @param flags Flags to pass to open.
-void open_fifo(const char *pathname, int flags);
+void open_fifo(const char *pathname, mode_t flags);
 
 #endif  // COMMON_IO_H

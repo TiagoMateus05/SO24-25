@@ -1,13 +1,15 @@
 #include "io.h"
 #include <errno.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
-#include "src/common/constants.h"
- 
+
+#include "constants.h"
  
 int read_all(int fd, void *buffer, size_t size, int *intr) {
   if (intr != NULL && *intr) {
@@ -90,7 +92,7 @@ void *safe_malloc(size_t size) {
 int safe_open(const char *path, int flags) {
     int fd = open(path, flags);
     if (fd == -1) {
-        fprintf(stderrr, "Failed to open file\n");
+        fprintf(stderr, "Failed to open file\n");
         exit(EXIT_FAILURE);
     }
     return fd;
