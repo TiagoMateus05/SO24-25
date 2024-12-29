@@ -31,6 +31,8 @@ int main(int argc, char* argv[]) {
 
   int *notif_pipe = malloc(sizeof(int)); // TODO: free
 
+  // TODO open pipes
+
   if (kvs_connect(req_pipe_path, resp_pipe_path, argv[2], notif_pipe_path, notif_pipe) != 0) {
     fprintf(stderr, "Failed to connect to the server\n");
     return 1;
