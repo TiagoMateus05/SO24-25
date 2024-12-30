@@ -117,3 +117,17 @@ void free_table(HashTable *ht) {
     pthread_rwlock_destroy(&ht->tablelock);
     free(ht);
 }
+
+int add_subscriber(HashTable *ht, const char *key, int notif_fd) {
+    // TODO: Implement for multiple subscribers
+    int index = hash(key);
+    ht->table[index]->subscribers[0] = notif_fd;
+    return 0;
+}
+
+int remove_subscriber(HashTable *ht, const char *key) {
+    // TODO: Implement for multiple subscribers
+    int index = hash(key);
+    ht->table[index]->subscribers[0] = -1;
+    return 0;
+}

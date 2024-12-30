@@ -5,9 +5,12 @@
 #include <stddef.h>
 #include <pthread.h>
 
+#include "../common/constants.h"
+
 typedef struct KeyNode {
     char *key;
     char *value;
+    int subscribers[MAX_NUMBER_SUB];
     struct KeyNode *next;
 } KeyNode;
 
@@ -45,5 +48,15 @@ int delete_pair(HashTable *ht, const char *key);
 /// @param ht Hash table to be deleted.
 void free_table(HashTable *ht);
 
+/// Adds a subscriber to a key.
+/// @param ht Hash table to add the subscriber.
+/// @param key Key to add the subscriber.
+/// @param notif_fd File descriptor to notify the subscriber.
+int add_subscriber(HashTable *ht, const char *key, int notif_fd);
+
+/// Removes a subscriber from a key.
+/// @param ht Hash table to remove the subscriber.
+/// @param key Key to remove the subscriber.
+int remove_subscriber(HashTable *ht, const char *key);
 
 #endif  // KVS_H

@@ -10,6 +10,22 @@
 #include "../common/constants.h"
 #include "../common/io.h"
 
+int disconnect_flag = 0;
+
+void *notifications_thread(void *arg) {
+  int *notif_pipe = (int *)arg;
+
+  while (!disconnect_flag) {
+    char pair[MAX_STRING_SIZE + 1][MAX_STRING_SIZE + 1] = {'\0'};
+
+    read_all(*notif_pipe, pair[0], MAX_STRING_SIZE, NULL);
+    read_all(*notif_pipe, pair[1], MAX_STRING_SIZE, NULL);
+
+    fprintf(stdout, "Notification: (<%s>,<%s>)\n", pair[0], pair[1]);
+  }
+
+  return NULL;
+}
 
 int main(int argc, char* argv[]) {
   if (argc < 3) {
@@ -29,12 +45,16 @@ int main(int argc, char* argv[]) {
   strncat(resp_pipe_path, argv[1], strlen(argv[1]) * sizeof(char));
   strncat(notif_pipe_path, argv[1], strlen(argv[1]) * sizeof(char));
 
-  int *notif_pipe = malloc(sizeof(int)); // TODO: free
-
-  // TODO open pipes
-
+  int *notif_pipe = malloc(sizeof(int)); 
+  
   if (kvs_connect(req_pipe_path, resp_pipe_path, argv[2], notif_pipe_path, notif_pipe) != 0) {
     fprintf(stderr, "Failed to connect to the server\n");
+    return 1;
+  }
+
+  pthread_t notif_thread;
+  if (pthread_create(&notif_thread, NULL, notifications_thread, notif_pipe) != 0) {
+    fprintf(stderr, "Failed to create notifications thread\n");
     return 1;
   }
 
@@ -45,8 +65,10 @@ int main(int argc, char* argv[]) {
           fprintf(stderr, "Failed to disconnect to the server\n");
           return 1;
         }
-        // TODO: end notifications thread
-        printf("Disconnected from server\n");
+        disconnect_flag = 1;
+        pthread_join(notif_thread, NULL);
+        safe_close(*notif_pipe);
+        safe_unlink(notif_pipe_path);
         return 0;
 
       case CMD_SUBSCRIBE:

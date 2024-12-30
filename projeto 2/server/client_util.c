@@ -1,10 +1,12 @@
 #include "client_util.h"
 
+#include <stdio.h>
 #include <string.h>
 
 #include "../common/io.h"
 
 client_args produce(int fd) {
+  printf("Reading client arguments\n");
   client_args ret;
 
   char code;

@@ -179,3 +179,15 @@ void kvs_wait(unsigned int delay_ms) {
   struct timespec delay = delay_to_timespec(delay_ms);
   nanosleep(&delay, NULL);
 }
+
+char kvs_subscribe(const char* key, int notif_fd) {
+  int temp = add_subscriber(kvs_table, key, notif_fd);
+  char ret = temp == 0 ? 0 : 1;
+  return ret;
+}
+
+char kvs_unsubscribe(const char* key) {
+  int temp = remove_subscriber(kvs_table, key);
+  char ret = temp == 0 ? 0 : 1;
+  return ret;
+}

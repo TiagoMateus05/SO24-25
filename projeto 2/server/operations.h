@@ -60,4 +60,13 @@ void set_n_current_backups(int _n_current_backups);
 // @return n_current_backups
 int get_n_current_backups();
 
+/// Adds a subscriber to a key.
+/// @param key The key to subscribe to.
+/// @param notif_fd The file descriptor to write the notification.
+char kvs_subscribe(const char* key, int notif_fd);
+
+/// Removes a subscriber from a key.
+/// @param key The key to unsubscribe from.
+char kvs_unsubscribe(const char* key);
+
 #endif  // KVS_OPERATIONS_H

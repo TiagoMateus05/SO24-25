@@ -34,7 +34,6 @@ int kvs_connect(char const* req_pipe_path, char const* resp_pipe_path, char cons
   strncpy(message + 1, req_pipe_path, MAX_PIPE_PATH_LENGTH);
   strncpy(message + 1 + MAX_PIPE_PATH_LENGTH, resp_pipe_path, MAX_PIPE_PATH_LENGTH);
   strncpy(message + 1 + 2 * MAX_PIPE_PATH_LENGTH, notif_pipe_path, MAX_PIPE_PATH_LENGTH);
-
   write_all(server_fd, message, 1 + 3 * MAX_PIPE_PATH_LENGTH);
 
   safe_close(server_fd);
@@ -45,12 +44,16 @@ int kvs_connect(char const* req_pipe_path, char const* resp_pipe_path, char cons
 
   *notifications_fd = notif_pipe_fd;
 
-  char buffer[2];
-  read_all(resp_pipe_fd, buffer, 2, NULL);
-  if (buffer[0] != OP_CONNECT || buffer[1] != 0) {
+  char code, res;
+  read_all(resp_pipe_fd, &code, sizeof(char), NULL);
+  read_all(resp_pipe_fd, &res, sizeof(char), NULL);
+
+  if (code != OP_CONNECT || res != 0) {
     fprintf(stderr, "Error connecting to server\n"); 
     return 1;
   }
+
+  fprintf(stdout, "Server returned <%d> for operation: <connect>\n", res);
 
   return 0;
 }
@@ -59,20 +62,23 @@ int kvs_disconnect(void) {
   char code = OP_DISCONNECT;
   write_all(req_pipe_fd, &code, sizeof(code));
 
-  char buffer[2];
-  read_all(resp_pipe_fd, buffer, 1, NULL);
-  if (buffer[0] != OP_DISCONNECT|| buffer[1] != 0) {
+  code = '\0';
+  char res;
+  read_all(resp_pipe_fd, &code, sizeof(char), NULL);
+  read_all(resp_pipe_fd, &res, sizeof(char), NULL);
+
+  fprintf(stdout, "Server returned <%d> for operation: <disconnect>\n", res);
+
+  if (code != OP_DISCONNECT || res != 0) {
     fprintf(stderr, "Error disconnecting from server\n"); 
     return 1;
   }
 
   safe_close(req_pipe_fd);
   safe_close(resp_pipe_fd);
-  safe_close(notif_pipe_fd);
 
   safe_unlink(req_pipe);
   safe_unlink(resp_pipe);
-  safe_unlink(notif_pipe);
 
   return 0;
 }
@@ -86,12 +92,17 @@ int kvs_subscribe(const char* key) {
 
   write_all(req_pipe_fd, message, 1 + key_length);
 
-  char buffer[2];
-  read_all(resp_pipe_fd, buffer, 2, NULL);
-  if (buffer[0] != OP_SUBSCRIBE || buffer[1] != 0) {
+  code = '\0';
+  char res;
+  read_all(resp_pipe_fd, &code, sizeof(char), NULL);
+  read_all(resp_pipe_fd, &res, sizeof(char), NULL);
+
+  if (code != OP_SUBSCRIBE || res != 0) {
     fprintf(stderr, "Error subscribing to key %s\n", key); 
     return 1;
   }
+
+  fprintf(stdout, "Server returned <%d> for operation: <subscribe>\n", res);
   
   return 0;
 }
@@ -105,12 +116,16 @@ int kvs_unsubscribe(const char* key) {
 
   write_all(req_pipe_fd, message, 1 + key_length);
 
-  char buffer[2];
-  read_all(resp_pipe_fd, buffer, 2, NULL);
-    if (buffer[0] != OP_UNSUBSCRIBE || buffer[1] != 0) {
+  code = '\0';
+  char res;
+  read_all(resp_pipe_fd, &code, sizeof(char), NULL);
+  read_all(resp_pipe_fd, &res, sizeof(char), NULL);
+  if (code != OP_UNSUBSCRIBE || res != 0) {
     fprintf(stderr, "Error unsubscribing from key %s\n", key); 
     return 1;
   }
+
+  fprintf(stdout, "Server returned <%d> for operation: <unsubscribe>\n", res);
 
   return 0;
 }

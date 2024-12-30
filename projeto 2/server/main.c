@@ -269,25 +269,48 @@ static void dispatch_threads(DIR* dir, char* server_pathname) {
   int resp_fd = safe_open(resp_pipe_path, O_WRONLY);
   int notif_fd = safe_open(notif_pipe_path, O_WRONLY);
 
-  char code;
+  char code = OP_CONNECT;
+  char res = 0;
+  write_all(resp_fd, &code, sizeof(char));
+  write_all(resp_fd, &res, sizeof(char));
+
+  char key[MAX_STRING_SIZE + 1];
 
   do {
     read_all(req_fd, &code, sizeof(char), NULL);
+
 
     switch (code) {
       case OP_DISCONNECT:
         break;
       case OP_SUBSCRIBE:
         // TODO: Implement subscribe
+        read_all(req_fd, key, MAX_STRING_SIZE, NULL);
+        code = OP_SUBSCRIBE;
+        res = kvs_subscribe(key, notif_fd);
         break;
       case OP_UNSUBSCRIBE:
         // TODO: Implement unsubscribe
+        read_all(req_fd, key, MAX_STRING_SIZE, NULL);
+        code = OP_UNSUBSCRIBE;
+        res = kvs_unsubscribe(key);
         break;
     }
+
+    write_all(resp_fd, &code, sizeof(char));
+    write_all(resp_fd, &res, sizeof(char));
+
+    memset(key, '\0', MAX_STRING_SIZE + 1);
   } while (code != OP_DISCONNECT);
 
-  close(req_fd);
-  close(resp_fd);
+  code = OP_DISCONNECT;
+  res = 0;
+  write_all(resp_fd, &code, sizeof(char));
+  write_all(resp_fd, &res, sizeof(char));
+
+  safe_close(req_fd);
+  safe_close(resp_fd);
+  safe_close(notif_fd);
 
   ///
   for (unsigned int i = 0; i < max_threads; i++) {

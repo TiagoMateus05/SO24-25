@@ -117,6 +117,4 @@ void open_fifo(const char *path, mode_t mode) {
     fprintf(stderr, "Failed to create FIFO %s: %s\n", path, strerror(errno));
     exit(EXIT_FAILURE);
   }
-
-  fprintf(stdout, "Created FIFO %s\n", path);
 }
