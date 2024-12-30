@@ -1,7 +1,8 @@
 #include <limits.h>
+#include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
+#include <unistd.h>
 
 void write_str(int fd, const char *str) {
   size_t len = strlen(str);

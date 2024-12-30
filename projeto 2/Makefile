@@ -14,7 +14,7 @@ endif
 
 all: server/kvs client/client
 
-server/kvs: common/protocol.h common/constants.h server/main.c server/operations.o server/kvs.o server/io.o server/parser.o common/io.o
+server/kvs: common/protocol.h common/constants.h server/main.c server/operations.o server/kvs.o server/io.o server/parser.o common/io.o server/client_util.o
 	$(CC) $(CFLAGS) $(SLEEP) -o $@ $^
 
 

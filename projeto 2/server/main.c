@@ -1,17 +1,19 @@
-#include <unistd.h>
 #include <dirent.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <stdio.h>
+#include <unistd.h>
 
-#include "constants.h"
-#include "parser.h"
-#include "operations.h"
+#include "../common/constants.h"
+#include "../common/io.h"
+#include "client_util.h"
 #include "io.h"
+#include "operations.h"
+#include "parser.h"
 #include "pthread.h"
 
 struct SharedData {
@@ -149,7 +151,7 @@ static int run_job(int in_fd, int out_fd, char* filename) {
             "  DELETE [key,key2,...]\n"
             "  SHOW\n"
             "  WAIT <delay_ms>\n"
-            "  BACKUP\n" // Not implemented
+            "  BACKUP\n" 
             "  HELP\n");
 
         break;
@@ -232,7 +234,7 @@ static void* get_file(void* arguments) {
 }
 
 
-static void dispatch_threads(DIR* dir) {
+static void dispatch_threads(DIR* dir, char* server_pathname) {
   pthread_t* threads = malloc(max_threads * sizeof(pthread_t));
 
   if (threads == NULL) {
@@ -252,8 +254,42 @@ static void dispatch_threads(DIR* dir) {
     }
   }
 
-  // ler do FIFO de registo
+  open_fifo(server_pathname, PIPE_PERMS);
+  // Open pipe for rdwr so that it does not block
+  int server_fd = open(server_pathname, O_RDWR);
 
+  /// Assumption: there is only one active client
+  client_args args = produce(server_fd);
+
+  char* req_pipe_path = args.req_pipe_path;
+  char* resp_pipe_path = args.resp_pipe_path;
+  char* notif_pipe_path = args.notif_pipe_path;
+
+  int req_fd = safe_open(req_pipe_path, O_RDONLY);
+  int resp_fd = safe_open(resp_pipe_path, O_WRONLY);
+  int notif_fd = safe_open(notif_pipe_path, O_WRONLY);
+
+  char code;
+
+  do {
+    read_all(req_fd, &code, sizeof(char), NULL);
+
+    switch (code) {
+      case OP_DISCONNECT:
+        break;
+      case OP_SUBSCRIBE:
+        // TODO: Implement subscribe
+        break;
+      case OP_UNSUBSCRIBE:
+        // TODO: Implement unsubscribe
+        break;
+    }
+  } while (code != OP_DISCONNECT);
+
+  close(req_fd);
+  close(resp_fd);
+
+  ///
   for (unsigned int i = 0; i < max_threads; i++) {
     if (pthread_join(threads[i], NULL) != 0) {
       fprintf(stderr, "Failed to join thread %u\n", i);
@@ -272,12 +308,13 @@ static void dispatch_threads(DIR* dir) {
 
 
 int main(int argc, char** argv) {
-  if (argc < 4) {
+  if (argc < 5) {
     write_str(STDERR_FILENO, "Usage: ");
     write_str(STDERR_FILENO, argv[0]);
     write_str(STDERR_FILENO, " <jobs_dir>");
 		write_str(STDERR_FILENO, " <max_threads>");
-		write_str(STDERR_FILENO, " <max_backups> \n");
+		write_str(STDERR_FILENO, " <max_backups>");
+    write_str(STDERR_FILENO, " server_fifo_name\n");
     return 1;
   }
 
@@ -319,7 +356,7 @@ int main(int argc, char** argv) {
     return 0;
   }
 
-  dispatch_threads(dir);
+  dispatch_threads(dir, argv[4]);
 
   if (closedir(dir) == -1) {
     fprintf(stderr, "Failed to close directory\n");
