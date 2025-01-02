@@ -274,26 +274,27 @@ static void dispatch_threads(DIR* dir, char* server_pathname) {
   write_all(resp_fd, &code, sizeof(char));
   write_all(resp_fd, &res, sizeof(char));
 
-  char key[MAX_STRING_SIZE + 1];
+  char key[MAX_STRING_SIZE + 1] = {'\0'};
 
-  do {
+  while (1) {
     read_all(req_fd, &code, sizeof(char), NULL);
 
+    if (code == OP_DISCONNECT) {
+      break;
+    }
+
+    read_all(req_fd, key, MAX_STRING_SIZE + 1, NULL);
 
     switch (code) {
-      case OP_DISCONNECT:
-        break;
       case OP_SUBSCRIBE:
-        // TODO: Implement subscribe
-        read_all(req_fd, key, MAX_STRING_SIZE, NULL);
-        code = OP_SUBSCRIBE;
         res = kvs_subscribe(key, notif_fd);
         break;
       case OP_UNSUBSCRIBE:
-        // TODO: Implement unsubscribe
-        read_all(req_fd, key, MAX_STRING_SIZE, NULL);
-        code = OP_UNSUBSCRIBE;
         res = kvs_unsubscribe(key);
+        break;
+      default:
+        fprintf(stderr, "Unknown operation code: %d\n", code);
+        res = 1;
         break;
     }
 
@@ -301,7 +302,7 @@ static void dispatch_threads(DIR* dir, char* server_pathname) {
     write_all(resp_fd, &res, sizeof(char));
 
     memset(key, '\0', MAX_STRING_SIZE + 1);
-  } while (code != OP_DISCONNECT);
+  }
 
   code = OP_DISCONNECT;
   res = 0;

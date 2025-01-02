@@ -1,8 +1,11 @@
 #include "kvs.h"
-#include "string.h"
-#include <ctype.h>
 
+#include <ctype.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
+#include "../common/io.h"
 
 // Hash function based on key initial.
 // @param key Lowercase alphabetical string.
@@ -40,6 +43,7 @@ int write_pair(HashTable *ht, const char *key, const char *value) {
             // overwrite value
             free(keyNode->value);
             keyNode->value = strdup(value);
+            notify_subscribers(keyNode, value);
             return 0;
         }
         previousNode = keyNode;
@@ -49,6 +53,7 @@ int write_pair(HashTable *ht, const char *key, const char *value) {
     keyNode = malloc(sizeof(KeyNode));
     keyNode->key = strdup(key); // Allocate memory for the key
     keyNode->value = strdup(value); // Allocate memory for the value
+    keyNode->subscribers[0] = -1;
     keyNode->next = ht->table[index]; // Link to existing nodes
     ht->table[index] = keyNode; // Place new key node at the start of the list
     return 0;
@@ -91,6 +96,7 @@ int delete_pair(HashTable *ht, const char *key) {
                 prevNode->next = keyNode->next; // Link the previous node to the next node
             }
             // Free the memory allocated for the key and value
+            notify_subscribers(keyNode, "DELETED");
             free(keyNode->key);
             free(keyNode->value);
             free(keyNode); // Free the key node itself
@@ -119,15 +125,55 @@ void free_table(HashTable *ht) {
 }
 
 int add_subscriber(HashTable *ht, const char *key, int notif_fd) {
-    // TODO: Implement for multiple subscribers
     int index = hash(key);
-    ht->table[index]->subscribers[0] = notif_fd;
+
+    KeyNode *keyNode = ht->table[index];
+    KeyNode *previousNode;
+
+    while (keyNode != NULL) {
+        fprintf(stdout, "Key: %s\n", keyNode->key);
+        fprintf(stdout, "Subscribers: %d\n", keyNode->subscribers[0]);
+        if (strcmp(keyNode->key, key) == 0) {
+            keyNode->subscribers[0] = notif_fd;
+            return 1; 
+        }
+        previousNode = keyNode;
+        keyNode = previousNode->next; 
+    }
+
     return 0;
 }
 
 int remove_subscriber(HashTable *ht, const char *key) {
-    // TODO: Implement for multiple subscribers
     int index = hash(key);
-    ht->table[index]->subscribers[0] = -1;
+
+    KeyNode *keyNode = ht->table[index];
+    KeyNode *previousNode;
+
+    while (keyNode != NULL) {
+        if (strcmp(keyNode->key, key) == 0) {
+            keyNode->subscribers[0] = -1;
+            return 1; 
+        }
+        previousNode = keyNode;
+        keyNode = previousNode->next; 
+    }
+
     return 0;
 }
+
+
+void notify_subscribers(KeyNode *keyNode, const char *value) {
+    char pair[MAX_STRING_SIZE + 1][MAX_STRING_SIZE + 1] = {'\0'};
+    strcpy(pair[0], keyNode->key);
+    strcpy(pair[1], value);
+
+    for (int i = 0; i < MAX_SESSION_COUNT; i++) {
+        if (keyNode->subscribers[i] != -1) {
+            int notif_fd = keyNode->subscribers[i];
+            write_all(notif_fd, &pair[0], MAX_STRING_SIZE + 1);
+            write_all(notif_fd, &pair[1], MAX_STRING_SIZE + 1);
+        }
+    }
+}
+

@@ -10,7 +10,7 @@
 typedef struct KeyNode {
     char *key;
     char *value;
-    int subscribers[MAX_NUMBER_SUB];
+    int subscribers[MAX_SESSION_COUNT];
     struct KeyNode *next;
 } KeyNode;
 
@@ -58,5 +58,10 @@ int add_subscriber(HashTable *ht, const char *key, int notif_fd);
 /// @param ht Hash table to remove the subscriber.
 /// @param key Key to remove the subscriber.
 int remove_subscriber(HashTable *ht, const char *key);
+
+/// Notifies all subscribers of a key.
+/// @param keyNode Node of the key to notify the subscribers.
+/// @param value Value of updated key or "DELETED" if the key was deleted.
+void notify_subscribers(KeyNode *keyNode, const char *value);
 
 #endif  // KVS_H

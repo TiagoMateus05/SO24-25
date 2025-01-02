@@ -13,15 +13,20 @@
 int disconnect_flag = 0;
 
 void *notifications_thread(void *arg) {
-  int *notif_pipe = (int *)arg;
+  int *notif_fd = (int *)arg;
 
   while (!disconnect_flag) {
     char pair[MAX_STRING_SIZE + 1][MAX_STRING_SIZE + 1] = {'\0'};
 
-    read_all(*notif_pipe, pair[0], MAX_STRING_SIZE, NULL);
-    read_all(*notif_pipe, pair[1], MAX_STRING_SIZE, NULL);
+    if (read_all(*notif_fd, pair[0], MAX_STRING_SIZE + 1, NULL) <= 0) {
+        continue;
+    }
 
-    fprintf(stdout, "Notification: (<%s>,<%s>)\n", pair[0], pair[1]);
+    if (read_all(*notif_fd, pair[1], MAX_STRING_SIZE + 1, NULL) <= 0) {
+        continue;
+    }
+
+    fprintf(stdout, "Notification: (%s,%s)\n", pair[0], pair[1]);
   }
 
   return NULL;
@@ -45,15 +50,15 @@ int main(int argc, char* argv[]) {
   strncat(resp_pipe_path, argv[1], strlen(argv[1]) * sizeof(char));
   strncat(notif_pipe_path, argv[1], strlen(argv[1]) * sizeof(char));
 
-  int *notif_pipe = malloc(sizeof(int)); 
+  int *notif_fd = malloc(sizeof(int)); 
   
-  if (kvs_connect(req_pipe_path, resp_pipe_path, argv[2], notif_pipe_path, notif_pipe) != 0) {
+  if (kvs_connect(req_pipe_path, resp_pipe_path, argv[2], notif_pipe_path, notif_fd) != 0) {
     fprintf(stderr, "Failed to connect to the server\n");
     return 1;
   }
 
   pthread_t notif_thread;
-  if (pthread_create(&notif_thread, NULL, notifications_thread, notif_pipe) != 0) {
+  if (pthread_create(&notif_thread, NULL, notifications_thread, notif_fd) != 0) {
     fprintf(stderr, "Failed to create notifications thread\n");
     return 1;
   }
@@ -66,9 +71,16 @@ int main(int argc, char* argv[]) {
           return 1;
         }
         disconnect_flag = 1;
-        pthread_join(notif_thread, NULL);
-        safe_close(*notif_pipe);
+        if (pthread_join(notif_thread, NULL) != 0) {
+          fprintf(stderr, "Failed to join notifications thread\n");
+          safe_close(*notif_fd);
+          safe_unlink(notif_pipe_path);
+          free(notif_fd);
+          return 1;
+        }
+        safe_close(*notif_fd);
         safe_unlink(notif_pipe_path);
+        free(notif_fd);
         return 0;
 
       case CMD_SUBSCRIBE:
