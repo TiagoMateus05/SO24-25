@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -21,6 +22,8 @@ struct SharedData {
   char* dir_name;
   pthread_mutex_t directory_mutex;
 };
+
+struct stat st = {0};
 
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t n_current_backups_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -244,7 +247,6 @@ static void dispatch_threads(DIR* dir, char* server_pathname) {
 
   struct SharedData thread_data = {dir, jobs_directory, PTHREAD_MUTEX_INITIALIZER};
 
-
   for (size_t i = 0; i < max_threads; i++) {
     if (pthread_create(&threads[i], NULL, get_file, (void*)&thread_data) != 0) {
       fprintf(stderr, "Failed to create thread %zu\n", i);
@@ -253,11 +255,17 @@ static void dispatch_threads(DIR* dir, char* server_pathname) {
       return;
     }
   }
+  //Opens the register server pipe in /tmp/reg for consistenci
+  char server_path[PATH_MAX];
+  snprintf(server_path, PATH_MAX, "/tmp/reg/%s", server_pathname);
 
-  open_fifo(server_pathname, PIPE_PERMS);
+  fprintf(stdout, "Opening server pipe: %s\n", server_path);
+
+  open_fifo(server_path, PIPE_PERMS);
   // Open pipe for rdwr so that it does not block
-  int server_fd = open(server_pathname, O_RDWR);
+  int server_fd = open(server_path, O_RDWR);
 
+  sleep(5);
   /// Assumption: there is only one active client
   client_args args = produce(server_fd);
 
@@ -275,6 +283,8 @@ static void dispatch_threads(DIR* dir, char* server_pathname) {
   write_all(resp_fd, &res, sizeof(char));
 
   char key[MAX_STRING_SIZE + 1] = {'\0'};
+
+  fprintf(stdout, "Server connected\n");
 
   while (1) {
     read_all(req_fd, &code, sizeof(char), NULL);
@@ -380,6 +390,22 @@ int main(int argc, char** argv) {
     return 0;
   }
 
+  fprintf(stdout, "Server Name: %s\n", argv[4]);
+
+  //Creates the req, resp and notif folders
+  if (stat("/tmp/reg", &st) == -1) {
+    mkdir("/tmp/reg", 0700);
+  }
+  if (stat("/tmp/req", &st) == -1) {
+    mkdir("/tmp/req", 0700);
+  }
+  if (stat("/tmp/resp", &st) == -1) {
+    mkdir("/tmp/resp", 0700);
+  }
+  if (stat("/tmp/notif", &st) == -1) {
+    mkdir("/tmp/notif", 0700);
+  }
+
   dispatch_threads(dir, argv[4]);
 
   if (closedir(dir) == -1) {
@@ -390,6 +416,19 @@ int main(int argc, char** argv) {
   while (active_backups > 0) {
     wait(NULL);
     active_backups--;
+  }
+
+  if (stat("/tmp/reg", &st) == 0) {
+    rmdir("/tmp/reg");
+  }
+  if (stat("/tmp/req", &st) == 0) {
+    rmdir("/tmp/req");
+  }
+  if (stat("/tmp/resp", &st) == 0) {
+    rmdir("/tmp/resp");
+  }
+  if (stat("/tmp/notif", &st) == 0) {
+    rmdir("/tmp/notif");
   }
 
   kvs_terminate();

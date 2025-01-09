@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <limits.h>
 
 #include "../common/constants.h"
 #include "../common/io.h"
@@ -23,17 +24,24 @@ int kvs_connect(char const* req_pipe_path, char const* resp_pipe_path, char cons
   resp_pipe = resp_pipe_path;
   notif_pipe = notif_pipe_path;
 
+  //Creates the server path to pipe to connect to server, it should be in /tmp/reg/_server_name_
+  char reg_pipe_path[PATH_MAX];
+
   open_fifo(req_pipe_path, PIPE_PERMS);
   open_fifo(resp_pipe_path, PIPE_PERMS);
   open_fifo(notif_pipe_path, PIPE_PERMS);
 
-  int server_fd = safe_open(server_pipe_path, O_WRONLY);
+  snprintf(reg_pipe_path, PATH_MAX, "/tmp/reg/%s", server_pipe_path);
+
+  int server_fd = safe_open(reg_pipe_path, O_WRONLY);
 
   char message[1 + 3 * MAX_PIPE_PATH_LENGTH];
   message[0] = OP_CONNECT;
   strncpy(message + 1, req_pipe_path, MAX_PIPE_PATH_LENGTH);
   strncpy(message + 1 + MAX_PIPE_PATH_LENGTH, resp_pipe_path, MAX_PIPE_PATH_LENGTH);
   strncpy(message + 1 + 2 * MAX_PIPE_PATH_LENGTH, notif_pipe_path, MAX_PIPE_PATH_LENGTH);
+  fprintf(stdout, "Sending message to server: %s\n", message);
+  
   write_all(server_fd, message, 1 + 3 * MAX_PIPE_PATH_LENGTH);
 
   safe_close(server_fd);

@@ -38,24 +38,26 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  char req_pipe_path[256] = "/tmp/req";
-  char resp_pipe_path[256] = "/tmp/resp";
-  char notif_pipe_path[256] = "/tmp/notif";
+  char req_pipe_path[256] = "/tmp/req/";
+  char resp_pipe_path[256] = "/tmp/resp/";
+  char notif_pipe_path[256] = "/tmp/notif/";
 
   char keys[MAX_NUMBER_SUB][MAX_STRING_SIZE] = {0};
   unsigned int delay_ms;
   size_t num;
-
   strncat(req_pipe_path, argv[1], strlen(argv[1]) * sizeof(char));
   strncat(resp_pipe_path, argv[1], strlen(argv[1]) * sizeof(char));
   strncat(notif_pipe_path, argv[1], strlen(argv[1]) * sizeof(char));
 
   int *notif_fd = malloc(sizeof(int)); 
   
+  fprintf(stdout, "Client %s\n", argv[1]);
+  fprintf(stdout, "Register pipe path: %s\n", req_pipe_path);
   if (kvs_connect(req_pipe_path, resp_pipe_path, argv[2], notif_pipe_path, notif_fd) != 0) {
     fprintf(stderr, "Failed to connect to the server\n");
     return 1;
   }
+  fprintf(stdout, "Connected to server\n");
 
   pthread_t notif_thread;
   if (pthread_create(&notif_thread, NULL, notifications_thread, notif_fd) != 0) {

@@ -25,5 +25,7 @@ client_args produce(int fd) {
   strncpy(ret.resp_pipe_path, resp_pipe_path, MAX_PIPE_PATH_LENGTH);
   strncpy(ret.notif_pipe_path, notif_pipe_path, MAX_PIPE_PATH_LENGTH);
 
+  fprintf(stdout, "Client arguments: %s %s %s\n", ret.req_pipe_path, ret.resp_pipe_path, ret.notif_pipe_path);
+
   return ret;
 }
