@@ -49,4 +49,6 @@ void safe_unlink(const char *pathname);
 /// @param flags Flags to pass to open.
 void open_fifo(const char *pathname, mode_t flags);
 
+void set_stop_server_io(int stop);
+
 #endif  // COMMON_IO_H

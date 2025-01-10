@@ -8,9 +8,11 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <semaphore.h>
 
 #include "../common/constants.h"
 #include "../common/io.h"
+#include "../common/protocol.h"
 #include "client_util.h"
 #include "io.h"
 #include "operations.h"
@@ -255,73 +257,22 @@ static void dispatch_threads(DIR* dir, char* server_pathname) {
       return;
     }
   }
-  //Opens the register server pipe in /tmp/reg for consistenci
+  //Opens the register server pipe in /tmp/reg for consistency
   char server_path[PATH_MAX];
   snprintf(server_path, PATH_MAX, "/tmp/reg/%s", server_pathname);
 
-  fprintf(stdout, "Opening server pipe: %s\n", server_path);
+  //Opens Semaphore
+
 
   open_fifo(server_path, PIPE_PERMS);
   // Open pipe for rdwr so that it does not block
   int server_fd = open(server_path, O_RDWR);
 
-  sleep(5);
-  /// Assumption: there is only one active client
-  client_args args = produce(server_fd);
+  pool_args *pool = safe_malloc(sizeof(pool_args));
+  pool->server_fd = server_fd;
+  pool->max_clients = MAX_SESSION_COUNT;
 
-  char* req_pipe_path = args.req_pipe_path;
-  char* resp_pipe_path = args.resp_pipe_path;
-  char* notif_pipe_path = args.notif_pipe_path;
-
-  int req_fd = safe_open(req_pipe_path, O_RDONLY);
-  int resp_fd = safe_open(resp_pipe_path, O_WRONLY);
-  int notif_fd = safe_open(notif_pipe_path, O_WRONLY);
-
-  char code = OP_CONNECT;
-  char res = 0;
-  write_all(resp_fd, &code, sizeof(char));
-  write_all(resp_fd, &res, sizeof(char));
-
-  char key[MAX_STRING_SIZE + 1] = {'\0'};
-
-  fprintf(stdout, "Server connected\n");
-
-  while (1) {
-    read_all(req_fd, &code, sizeof(char), NULL);
-
-    if (code == OP_DISCONNECT) {
-      break;
-    }
-
-    read_all(req_fd, key, MAX_STRING_SIZE + 1, NULL);
-
-    switch (code) {
-      case OP_SUBSCRIBE:
-        res = kvs_subscribe(key, notif_fd);
-        break;
-      case OP_UNSUBSCRIBE:
-        res = kvs_unsubscribe(key);
-        break;
-      default:
-        fprintf(stderr, "Unknown operation code: %d\n", code);
-        res = 1;
-        break;
-    }
-
-    write_all(resp_fd, &code, sizeof(char));
-    write_all(resp_fd, &res, sizeof(char));
-
-    memset(key, '\0', MAX_STRING_SIZE + 1);
-  }
-
-  code = OP_DISCONNECT;
-  res = 0;
-  write_all(resp_fd, &code, sizeof(char));
-  write_all(resp_fd, &res, sizeof(char));
-
-  safe_close(req_fd);
-  safe_close(resp_fd);
-  safe_close(notif_fd);
+  client_pool_manager(pool);
 
   ///
   for (unsigned int i = 0; i < max_threads; i++) {
@@ -389,8 +340,6 @@ int main(int argc, char** argv) {
     fprintf(stderr, "Failed to open directory: %s\n", argv[1]);
     return 0;
   }
-
-  fprintf(stdout, "Server Name: %s\n", argv[4]);
 
   //Creates the req, resp and notif folders
   if (stat("/tmp/reg", &st) == -1) {

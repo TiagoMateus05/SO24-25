@@ -9,4 +9,6 @@ enum {
   // TODO mais opcodes para cada operacao
 };
 
+
+
 #endif  // COMMON_PROTOCOL_H

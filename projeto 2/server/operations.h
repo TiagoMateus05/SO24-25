@@ -66,7 +66,13 @@ int get_n_current_backups();
 char kvs_subscribe(const char* key, int notif_fd);
 
 /// Removes a subscriber from a key.
-/// @param key The key to unsubscribe from.
-char kvs_unsubscribe(const char* key);
+/// @param key The key to unsubscribe from. 
+/// @param notif_fd The file descriptor to write the notification.
+char kvs_unsubscribe(const char* key, int notif_fd);
+
+/// Disconnects a client from the server.
+/// @param keys The keys to unsubscribe from.
+/// @param notif_fd The file descriptor to write the notification.
+void kvs_disconnect_client(char keys[MAX_NUMBER_SUB][MAX_STRING_SIZE], int notif_fd);
 
 #endif  // KVS_OPERATIONS_H

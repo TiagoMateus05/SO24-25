@@ -181,13 +181,31 @@ void kvs_wait(unsigned int delay_ms) {
 }
 
 char kvs_subscribe(const char* key, int notif_fd) {
+  //Para evitar que sejam feitas alterações enquanto se está a adicionar um subscriber
+  pthread_rwlock_wrlock(&kvs_table->tablelock);
   int temp = add_subscriber(kvs_table, key, notif_fd);
+  pthread_rwlock_unlock(&kvs_table->tablelock);
   char ret = temp == 0 ? 0 : 1;
   return ret;
 }
 
-char kvs_unsubscribe(const char* key) {
-  int temp = remove_subscriber(kvs_table, key);
+char kvs_unsubscribe(const char* key, int notif_fd) {
+  //Para evitar que sejam feitas alterações enquanto se está a remover um subscriber
+  pthread_rwlock_wrlock(&kvs_table->tablelock);
+  int temp = remove_subscriber(kvs_table, key, notif_fd);
+  pthread_rwlock_unlock(&kvs_table->tablelock);
   char ret = temp == 0 ? 0 : 1;
   return ret;
+}
+
+void kvs_disconnect_client(char keys[MAX_NUMBER_SUB][MAX_STRING_SIZE], int notif_fd) {
+  //Para evitar que sejam feitas alterações enquanto se está a remover um subscriber
+  pthread_rwlock_wrlock(&kvs_table->tablelock);
+  for (int i = 0; i < MAX_NUMBER_SUB; i++) {
+    if (keys[i][0] != '\0') {
+      remove_subscriber(kvs_table, keys[i], notif_fd);
+    }
+  }
+  pthread_rwlock_unlock(&kvs_table->tablelock);
+  
 }

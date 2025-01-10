@@ -4,11 +4,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <semaphore.h>
 
 #include "parser.h"
 #include "../client/api.h"
 #include "../common/constants.h"
 #include "../common/io.h"
+#include "../common/protocol.h"
 
 int disconnect_flag = 0;
 
@@ -49,10 +51,10 @@ int main(int argc, char* argv[]) {
   strncat(resp_pipe_path, argv[1], strlen(argv[1]) * sizeof(char));
   strncat(notif_pipe_path, argv[1], strlen(argv[1]) * sizeof(char));
 
+  printf("Waiting for server acess...\n");
+
   int *notif_fd = malloc(sizeof(int)); 
   
-  fprintf(stdout, "Client %s\n", argv[1]);
-  fprintf(stdout, "Register pipe path: %s\n", req_pipe_path);
   if (kvs_connect(req_pipe_path, resp_pipe_path, argv[2], notif_pipe_path, notif_fd) != 0) {
     fprintf(stderr, "Failed to connect to the server\n");
     return 1;
@@ -83,6 +85,8 @@ int main(int argc, char* argv[]) {
         safe_close(*notif_fd);
         safe_unlink(notif_pipe_path);
         free(notif_fd);
+
+        //releases the semaphore and closes it
         return 0;
 
       case CMD_SUBSCRIBE:

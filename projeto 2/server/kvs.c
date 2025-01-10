@@ -53,7 +53,9 @@ int write_pair(HashTable *ht, const char *key, const char *value) {
     keyNode = malloc(sizeof(KeyNode));
     keyNode->key = strdup(key); // Allocate memory for the key
     keyNode->value = strdup(value); // Allocate memory for the value
-    keyNode->subscribers[0] = -1;
+    for (int i = 0; i < MAX_SESSION_COUNT; i++) {
+        keyNode->subscribers[i] = -1;
+    }
     keyNode->next = ht->table[index]; // Link to existing nodes
     ht->table[index] = keyNode; // Place new key node at the start of the list
     return 0;
@@ -131,11 +133,14 @@ int add_subscriber(HashTable *ht, const char *key, int notif_fd) {
     KeyNode *previousNode;
 
     while (keyNode != NULL) {
-        fprintf(stdout, "Key: %s\n", keyNode->key);
-        fprintf(stdout, "Subscribers: %d\n", keyNode->subscribers[0]);
         if (strcmp(keyNode->key, key) == 0) {
-            keyNode->subscribers[0] = notif_fd;
-            return 1; 
+            for (int i = 0; i < MAX_SESSION_COUNT; i++) {
+                if (keyNode->subscribers[i] == -1) {
+                    keyNode->subscribers[i] = notif_fd;
+                    fprintf(stdout, "Subscribed: %d\n", notif_fd);
+                    return 1;
+                }
+            }
         }
         previousNode = keyNode;
         keyNode = previousNode->next; 
@@ -144,7 +149,7 @@ int add_subscriber(HashTable *ht, const char *key, int notif_fd) {
     return 0;
 }
 
-int remove_subscriber(HashTable *ht, const char *key) {
+int remove_subscriber(HashTable *ht, const char *key, int fd) {
     int index = hash(key);
 
     KeyNode *keyNode = ht->table[index];
@@ -152,8 +157,12 @@ int remove_subscriber(HashTable *ht, const char *key) {
 
     while (keyNode != NULL) {
         if (strcmp(keyNode->key, key) == 0) {
-            keyNode->subscribers[0] = -1;
-            return 1; 
+            for (int i = 0; i < MAX_SESSION_COUNT; i++) {
+                if (keyNode->subscribers[i] == fd) {
+                    keyNode->subscribers[i] = -1;
+                    return 1;
+                }
+            }
         }
         previousNode = keyNode;
         keyNode = previousNode->next; 
@@ -175,5 +184,6 @@ void notify_subscribers(KeyNode *keyNode, const char *value) {
             write_all(notif_fd, &pair[1], MAX_STRING_SIZE + 1);
         }
     }
+    fprintf(stdout, "Notified all subscribers\n");
 }
 

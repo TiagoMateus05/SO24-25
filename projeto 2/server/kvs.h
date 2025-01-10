@@ -57,7 +57,7 @@ int add_subscriber(HashTable *ht, const char *key, int notif_fd);
 /// Removes a subscriber from a key.
 /// @param ht Hash table to remove the subscriber.
 /// @param key Key to remove the subscriber.
-int remove_subscriber(HashTable *ht, const char *key);
+int remove_subscriber(HashTable *ht, const char *key , int fd);
 
 /// Notifies all subscribers of a key.
 /// @param keyNode Node of the key to notify the subscribers.
