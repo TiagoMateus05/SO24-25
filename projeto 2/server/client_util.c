@@ -93,7 +93,6 @@ void close_worker_threads() {
 }
 
 client_args produce(int fd) {
-  printf("Reading client arguments\n");
   client_args ret = {0};
   int res = 0;
 
@@ -148,7 +147,6 @@ void *client_threads() {
   while (!stop_server) {
     int index = 0;
     client_args client = consumer();
-    fprintf(stderr, "Client\n");
 
     int req_fd = safe_open(client.req_pipe_path, O_RDONLY);
     int resp_fd = safe_open(client.resp_pipe_path, O_WRONLY);
@@ -243,7 +241,7 @@ void *client_threads() {
         fprintf(stderr, "Failed to write to client\n");
         exit(1);
       }
-      printf("Code: %d\n", code);
+
       memset(key, '\0', MAX_STRING_SIZE + 1);
     }
 
@@ -281,20 +279,14 @@ void client_pool_manager(pool_args * args) {
 
   while (!stop_server) {
     if (sigusr1_flag) {
-      fprintf(stderr, "Received SIGUSR1 and Handling\n");
       for (int i = 0; i < MAX_SESSION_COUNT; i++) {
         if (active_clients[i].req_pipe_fd != -1) {
           kvs_disconnect_client(active_clients[i].keys, 
                                 active_clients[i].notif_pipe_fd);
 
-          fprintf(stderr, "Closing FD %d\n", active_clients[i].notif_pipe_fd);
           safe_close(active_clients[i].notif_pipe_fd);
-          fprintf(stderr, "Closing FD %d\n", active_clients[i].resp_pipe_fd);
           safe_close(active_clients[i].resp_pipe_fd);
-          fprintf(stderr, "Closing FD %d\n", active_clients[i].req_pipe_fd);
           safe_close(active_clients[i].req_pipe_fd);
-
-          fprintf(stderr, "Close FD %d\n", active_clients[i].req_pipe_fd);
 
           safe_unlink(active_clients[i].req_pipe_path);
           safe_unlink(active_clients[i].resp_pipe_path);
@@ -307,13 +299,11 @@ void client_pool_manager(pool_args * args) {
           active_clients[i].notif_pipe_fd = -1;
         }
       }
-      fprintf(stderr, "SIGUSR1 handled\n");
       sigusr1_flag = false;
     }
     if (!sigusr1_flag){
       client_args client = produce(server_reg_path);
       producer(client);
-      fprintf(stderr, "Produced\n");
     }
   }
 }
@@ -323,7 +313,6 @@ void set_stop_server(int stop) {
 }
 
 void sig_handler(int sig) {
-  fprintf(stderr, "Received SIGUSR1\n");
   sigusr1_flag = true;
   if (signal(sig, sig_handler) == SIG_ERR) {
     fprintf(stderr, "Failed to set signal handler\n");

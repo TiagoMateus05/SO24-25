@@ -43,7 +43,6 @@ int write_pair(HashTable *ht, const char *key, const char *value) {
             // overwrite value
             free(keyNode->value);
             keyNode->value = strdup(value);
-            notify_subscribers(keyNode, value);
             return 0;
         }
         previousNode = keyNode;

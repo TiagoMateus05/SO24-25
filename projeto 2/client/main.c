@@ -21,7 +21,7 @@ void *notifications_thread(void *arg) {
   while (!disconnect_flag && !server_disconnected) {
     char pair[MAX_STRING_SIZE + 1][MAX_STRING_SIZE + 1] = {{'\0'}};
 
-    if (read_all(*notif_fd, pair[0], MAX_STRING_SIZE + 1, NULL) <= 0) {
+    if (read_all(*notif_fd, pair[0], MAX_STRING_SIZE + 1, NULL) <= 0 && !disconnect_flag) {
         server_disconnected = 1;
         free(notif_fd);
         server_disconnected_gracefully();
@@ -31,7 +31,7 @@ void *notifications_thread(void *arg) {
         break;
     }
 
-    if (read_all(*notif_fd, pair[1], MAX_STRING_SIZE + 1, NULL) <= 0) {
+    if (read_all(*notif_fd, pair[1], MAX_STRING_SIZE + 1, NULL) <= 0 && !disconnect_flag) {
         server_disconnected = 1;
         free(notif_fd);
         server_disconnected_gracefully();
@@ -83,6 +83,7 @@ int main(int argc, char* argv[]) {
   while (!server_disconnected) {
     switch (get_next(STDIN_FILENO)) {
       case CMD_DISCONNECT:
+        pthread_cancel(notif_thread);
         if (kvs_disconnect() != 0) {
           fprintf(stderr, "Failed to disconnect to the server\n");
           return 1;

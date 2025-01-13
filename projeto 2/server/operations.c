@@ -41,6 +41,16 @@ int kvs_terminate() {
   return 0;
 }
 
+int is_last_change(char *key, char keys[][MAX_STRING_SIZE], size_t num_pairs, 
+                   char values[][MAX_STRING_SIZE], char *value) {
+    for (size_t i = num_pairs; i > 0; i--) { 
+        if (strcmp(key, keys[i - 1]) == 0) { 
+            return strcmp(value, values[i - 1]) == 0; 
+        }
+    }
+    return 0; 
+}
+
 int kvs_write(size_t num_pairs, char keys[][MAX_STRING_SIZE],
               char values[][MAX_STRING_SIZE]) {
   if (kvs_table == NULL) {
@@ -53,6 +63,18 @@ int kvs_write(size_t num_pairs, char keys[][MAX_STRING_SIZE],
   for (size_t i = 0; i < num_pairs; i++) {
     if (write_pair(kvs_table, keys[i], values[i]) != 0) {
       fprintf(stderr, "Failed to write key pair (%s,%s)\n", keys[i], values[i]);
+    }
+  }
+
+  for (size_t i = 0; i < num_pairs; i++)  {
+    int index = hash(keys[i]);
+    KeyNode *keyNode = kvs_table->table[index];
+    while (keyNode != NULL) {
+      // Only notify subscribers of the last change to the key
+      if (strcmp(keyNode->key, keys[i]) == 0 && is_last_change(keys[i], keys, num_pairs, values, values[i])) {
+        notify_subscribers(keyNode, values[i]);
+      }
+      keyNode = keyNode->next;
     }
   }
 

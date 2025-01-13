@@ -1,4 +1,5 @@
-WAIT 1
+WRITE [(e,edmundo)(f,felix)]
+WAIT 10000
 WRITE [(e,edmundo)(f,felix)]
 WRITE [(g,gabriela)(h,helio)]
 WRITE [(d,dinis)(c,carlota)]

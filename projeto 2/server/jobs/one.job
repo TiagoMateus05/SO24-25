@@ -1,7 +1,9 @@
 WRITE [(a,anna)(b,bernardo)]
-WAIT 1
+WAIT 10000
 WRITE [(d,dinis)(c,carlota)]
 WRITE [(a,ricardo)(b,bernardo)]
+WRITE [(a,AS)(a,dsadda)(e,bababa)(a,asdasdasvdbfhgghhg)(eee,no)(e,why)]
+WAIT 10000
 WRITE [(d,gonçalo)(c,carlota)]
 READ [x,z,l,v]
 SHOW
