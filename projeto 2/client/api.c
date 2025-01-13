@@ -1,11 +1,12 @@
 #include "api.h"
 
+#include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <limits.h>
 
 #include "../common/constants.h"
 #include "../common/io.h"
@@ -40,9 +41,14 @@ int kvs_connect(char const* req_pipe_path, char const* resp_pipe_path, char cons
   strncpy(message + 1, req_pipe_path, MAX_PIPE_PATH_LENGTH);
   strncpy(message + 1 + MAX_PIPE_PATH_LENGTH, resp_pipe_path, MAX_PIPE_PATH_LENGTH);
   strncpy(message + 1 + 2 * MAX_PIPE_PATH_LENGTH, notif_pipe_path, MAX_PIPE_PATH_LENGTH);
+  
   fprintf(stdout, "Sending message to server: %s\n", message);
   
-  write_all(server_fd, message, 1 + 3 * MAX_PIPE_PATH_LENGTH);
+  int ret = write_all(server_fd, message, 1 + 3 * MAX_PIPE_PATH_LENGTH);
+  if (ret == -1) {
+    fprintf(stderr, "Failed to write to server\n");
+    return 1;
+  }
 
   safe_close(server_fd);
 
@@ -53,8 +59,17 @@ int kvs_connect(char const* req_pipe_path, char const* resp_pipe_path, char cons
   *notifications_fd = notif_pipe_fd;
 
   char code, res;
-  read_all(resp_pipe_fd, &code, sizeof(char), NULL);
-  read_all(resp_pipe_fd, &res, sizeof(char), NULL);
+  ret = read_all(resp_pipe_fd, &code, sizeof(char), NULL);
+  if (ret == -1) {
+    fprintf(stderr, "Failed to read from server\n");
+    return 1;
+  }
+
+  ret = read_all(resp_pipe_fd, &res, sizeof(char), NULL);
+  if (ret == -1) {
+    fprintf(stderr, "Failed to read from server\n");
+    return 1;
+  }
 
   fprintf(stdout, "Server returned %d for operation: connect\n", res);
 
@@ -67,13 +82,27 @@ int kvs_connect(char const* req_pipe_path, char const* resp_pipe_path, char cons
 }
  
 int kvs_disconnect(void) {
+  int ret;
   char code = OP_DISCONNECT;
-  write_all(req_pipe_fd, &code, sizeof(code));
+  ret = write_all(req_pipe_fd, &code, sizeof(code));
+  if (ret == -1) {
+    fprintf(stderr, "Failed to write to server\n");
+    return 1;
+  }
 
   code = '\0';
   char res;
-  read_all(resp_pipe_fd, &code, sizeof(char), NULL);
-  read_all(resp_pipe_fd, &res, sizeof(char), NULL);
+  ret = read_all(resp_pipe_fd, &code, sizeof(char), NULL);
+  if (ret == -1) {
+    fprintf(stderr, "Failed to read from server\n");
+    return 1;
+  }
+
+  ret = read_all(resp_pipe_fd, &res, sizeof(char), NULL);
+  if (ret == -1) {
+    fprintf(stderr, "Failed to read from server\n");
+    return 1;
+  }
 
   fprintf(stdout, "Server returned %d for operation: disconnect\n", res);
 
@@ -96,13 +125,31 @@ int kvs_subscribe(const char* key) {
   char subs_key[MAX_STRING_SIZE + 1] = {'\0'};
   strncpy(subs_key, key, MAX_STRING_SIZE);
 
-  write_all(req_pipe_fd, &code, sizeof(code));
-  write_all(req_pipe_fd, subs_key, MAX_STRING_SIZE + 1);
+  int ret = write_all(req_pipe_fd, &code, sizeof(code));
+  if (ret == -1) {
+    fprintf(stderr, "Failed to write to server\n");
+    return 1;
+  }
+
+  ret = write_all(req_pipe_fd, subs_key, MAX_STRING_SIZE + 1);
+  if (ret == -1) {
+    fprintf(stderr, "Failed to write to server\n");
+    return 1;
+  }
 
   code = '\0';
   char res;
-  read_all(resp_pipe_fd, &code, sizeof(char), NULL);
-  read_all(resp_pipe_fd, &res, sizeof(char), NULL);
+  ret = read_all(resp_pipe_fd, &code, sizeof(char), NULL);
+  if (ret == -1) {
+    fprintf(stderr, "Failed to read from server\n");
+    return 1;
+  }
+
+  ret = read_all(resp_pipe_fd, &res, sizeof(char), NULL);
+  if (ret == -1) {
+    fprintf(stderr, "Failed to read from server\n");
+    return 1;
+  }
 
   fprintf(stdout, "Server returned %d for operation: subscribe\n", res);
   
@@ -114,13 +161,32 @@ int kvs_unsubscribe(const char* key) {
   char unsubs_key[MAX_STRING_SIZE + 1] = {'\0'};
   strncpy(unsubs_key, key, MAX_STRING_SIZE);
 
-  write_all(req_pipe_fd, &code, sizeof(code));
-  write_all(req_pipe_fd, unsubs_key, MAX_STRING_SIZE + 1);
+  int ret = write_all(req_pipe_fd, &code, sizeof(code));
+  if (ret == -1) {
+    fprintf(stderr, "Failed to write to server\n");
+    return 1;
+  }
+
+  ret = write_all(req_pipe_fd, unsubs_key, MAX_STRING_SIZE + 1);
+  if (ret == -1) {
+    fprintf(stderr, "Failed to write to server\n");
+    return 1;
+  }
+
 
   code = '\0';
   char res;
-  read_all(resp_pipe_fd, &code, sizeof(char), NULL);
-  read_all(resp_pipe_fd, &res, sizeof(char), NULL);
+  ret = read_all(resp_pipe_fd, &code, sizeof(char), NULL);
+  if (ret == -1) {
+    fprintf(stderr, "Failed to read from server\n");
+    return 1;
+  }
+
+  ret = read_all(resp_pipe_fd, &res, sizeof(char), NULL);
+  if (ret == -1) {
+    fprintf(stderr, "Failed to read from server\n");
+    return 1;
+  }
 
   fprintf(stdout, "Server returned %d for operation: unsubscribe\n", res);
 

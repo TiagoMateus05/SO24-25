@@ -51,7 +51,7 @@ int main(int argc, char* argv[]) {
   strncat(resp_pipe_path, argv[1], strlen(argv[1]) * sizeof(char));
   strncat(notif_pipe_path, argv[1], strlen(argv[1]) * sizeof(char));
 
-  printf("Waiting for server acess...\n");
+  printf("Waiting for server access...\n");
 
   int *notif_fd = malloc(sizeof(int)); 
   
@@ -139,4 +139,9 @@ int main(int argc, char* argv[]) {
         break;
     }
   }
+}
+
+void shutdown_gracefully() {
+
+
 }

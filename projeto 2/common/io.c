@@ -8,62 +8,48 @@
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
+#include <errno.h>
+#include <stdbool.h>
 
 #include "constants.h"
+
 
 int stop_io = 0;
  
 int read_all(int fd, void *buffer, size_t size, int *intr) {
-    if (intr != NULL && *intr) {
-        return -1;
-    }
-
-    // Set the file descriptor to non-blocking mode
-    int flags = fcntl(fd, F_GETFL, 0);
-    if (flags == -1) {
-        perror("Failed to get file descriptor flags");
-        return -1;
-    }
-    if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
-        perror("Failed to set file descriptor to non-blocking mode");
-        return -1;
-    }
-
-    size_t bytes_read = 0;
-    while (bytes_read < size && !stop_io) {
-        ssize_t result = read(fd, buffer + bytes_read, size - bytes_read);
-        if (result == -1) {
-            if (errno == EINTR) {
-                if (intr != NULL) {
-                    *intr = 1;
-                    if (bytes_read == 0) {
-                        return -1;
-                    }
-                }
-                continue;
-            } else if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                // If the read would block, check the stop_io flag again
-                if (stop_io) {
-                    break;
-                }
-                continue;
-            } else {
-                perror("Failed to read from pipe");
-                return -1;
-            }
-        } else if (result == 0) {
-            return 0;
+  if (intr != NULL && *intr) {
+    return -1;
+  }
+  size_t bytes_read = 0;
+  while (bytes_read < size) {
+    ssize_t result = read(fd, buffer + bytes_read, size - bytes_read);
+    fprintf(stdout, "Read %ld bytes in fd: %d\n", result, fd);
+    if (result == -1) {
+      if (errno == EPIPE || errno == EBADFD) {
+        fprintf(stderr, "Broken pipe\n");
+          return -2;
+      } else if (errno == EINTR) {
+        if (intr != NULL) {
+          *intr = 1;
+          if (bytes_read == 0) {
+            return -1;
+          }
         }
-        bytes_read += (size_t)result;
-    }
 
-    // Restore the file descriptor to blocking mode
-    if (fcntl(fd, F_SETFL, flags) == -1) {
-        perror("Failed to restore file descriptor to blocking mode");
-        return -1;
+        continue;
+      }
+      perror("Failed to read from pipe");
+      return -1;
+    } else if (result == 0) {
+      return 0;
     }
-
-    return (bytes_read == size) ? 1 : -1;
+    bytes_read += (size_t)result;
+  }
+  if (errno == EPIPE || errno == EBADFD) {
+    fprintf(stderr, "Broken pipe\n");
+    return -2;
+  }
+  return 1;
 }
  
 int read_string(int fd, char *str) {
@@ -85,12 +71,16 @@ int read_string(int fd, char *str) {
 int write_all(int fd, const void *buffer, size_t size) {
   size_t bytes_written = 0;
   while (bytes_written < size) {
+    fprintf(stdout, "Writing %ld bytes in fd: %d\n", size, fd);
     ssize_t result = write(fd, buffer + bytes_written, size - bytes_written);
     if (result == -1) {
       if (errno == EINTR) {
         // error for broken PIPE (error associated with writting to the closed PIPE)
         continue;
+      } else if (errno == EPIPE) {
+        return 2;
       }
+      
       perror("Failed to write to pipe");
       return -1;
     }
@@ -147,7 +137,7 @@ void open_fifo(const char *path, mode_t mode) {
   }
 }
 
-void set_stop_server_io(int stop) {
+void set_stop_io(int stop) {
   fprintf(stdout, "Setting stop_io to %d\n", stop);
   stop_io = stop;
 }

@@ -190,7 +190,7 @@ char kvs_subscribe(const char* key, int notif_fd) {
 }
 
 char kvs_unsubscribe(const char* key, int notif_fd) {
-  //Para evitar que sejam feitas alterações enquanto se está a remover um subscriber
+  // To avoid changes while removing a subscriber
   pthread_rwlock_wrlock(&kvs_table->tablelock);
   int temp = remove_subscriber(kvs_table, key, notif_fd);
   pthread_rwlock_unlock(&kvs_table->tablelock);
@@ -199,7 +199,7 @@ char kvs_unsubscribe(const char* key, int notif_fd) {
 }
 
 void kvs_disconnect_client(char keys[MAX_NUMBER_SUB][MAX_STRING_SIZE], int notif_fd) {
-  //Para evitar que sejam feitas alterações enquanto se está a remover um subscriber
+  // To avoid changes while removing a subscriber
   pthread_rwlock_wrlock(&kvs_table->tablelock);
   for (int i = 0; i < MAX_NUMBER_SUB; i++) {
     if (keys[i][0] != '\0') {

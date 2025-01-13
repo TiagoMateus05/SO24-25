@@ -10,16 +10,14 @@ typedef struct {
 } pool_args;
 
 typedef struct {
-    int id;
     char req_pipe_path[MAX_PIPE_PATH_LENGTH];
     char resp_pipe_path[MAX_PIPE_PATH_LENGTH];
     char notif_pipe_path[MAX_PIPE_PATH_LENGTH];
+    int req_pipe_fd;
+    int resp_pipe_fd;
+    int notif_pipe_fd;
+    char keys[MAX_NUMBER_SUB][MAX_STRING_SIZE];
 } client_args;
-
-typedef struct{
-    KeyNode *notif_table[MAX_NUMBER_SUB * MAX_SESSION_COUNT];
-} NotifTable;
-
 
 ///  Reads the client pipe arguments from the server pipe.
 /// @param fd The file descriptor of the server pipe.
@@ -28,9 +26,10 @@ client_args produce(int fd);
 
 void * client_threads();
 
-//Client Queue Functions Prototypes
+// Client Queue Functions Prototypes
 void client_pool_manager(pool_args * args);
 void set_stop_server(int stop);
 
+void sig_handler(int sig);
 
 #endif

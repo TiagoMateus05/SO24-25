@@ -1,6 +1,9 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <semaphore.h>
+#include <signal.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,7 +11,6 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <semaphore.h>
 
 #include "../common/constants.h"
 #include "../common/io.h"
@@ -177,6 +179,14 @@ static void* get_file(void* arguments) {
   DIR* dir = thread_data->dir;
   char* dir_name = thread_data->dir_name;
 
+  sigset_t set;
+  sigemptyset(&set);
+  sigaddset(&set, SIGUSR1);
+  if (pthread_sigmask(SIG_BLOCK, &set, NULL) != 0) {
+    fprintf(stderr, "Failed to block SIGUSR1\n");
+    exit(1);
+  }
+
   if (pthread_mutex_lock(&thread_data->directory_mutex) != 0) {
     fprintf(stderr, "Thread failed to lock directory_mutex\n");
     return NULL;
@@ -257,13 +267,12 @@ static void dispatch_threads(DIR* dir, char* server_pathname) {
       return;
     }
   }
-  //Opens the register server pipe in /tmp/reg for consistency
+
+  // Opens the register server pipe in /tmp/reg for consistency
   char server_path[PATH_MAX];
   snprintf(server_path, PATH_MAX, "/tmp/reg/%s", server_pathname);
 
-  //Opens Semaphore
-
-
+  // Opens Semaphore
   open_fifo(server_path, PIPE_PERMS);
   // Open pipe for rdwr so that it does not block
   int server_fd = open(server_path, O_RDWR);
@@ -274,7 +283,6 @@ static void dispatch_threads(DIR* dir, char* server_pathname) {
 
   client_pool_manager(pool);
 
-  ///
   for (unsigned int i = 0; i < max_threads; i++) {
     if (pthread_join(threads[i], NULL) != 0) {
       fprintf(stderr, "Failed to join thread %u\n", i);
@@ -293,6 +301,11 @@ static void dispatch_threads(DIR* dir, char* server_pathname) {
 
 
 int main(int argc, char** argv) {
+  if (signal(SIGUSR1, sig_handler) == SIG_ERR) {
+    fprintf(stderr, "Failed to change how SIGUSR1 is handled\n");
+    return 1;
+  }
+
   if (argc < 5) {
     write_str(STDERR_FILENO, "Usage: ");
     write_str(STDERR_FILENO, argv[0]);

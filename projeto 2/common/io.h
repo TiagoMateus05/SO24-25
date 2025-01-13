@@ -20,7 +20,7 @@ int read_string(int fd, char *str);
 /// @param fd File descriptor to write to.
 /// @param buffer Buffer to write from.
 /// @param size Number of bytes to write.
-/// @return On success, returns 1, on error, returns -1
+/// @return On success, returns 1, on EPIPE returns 2. On error, returns -1.
 int write_all(int fd, const void *buffer, size_t size);
 
 void delay(unsigned int time_ms);
@@ -49,6 +49,6 @@ void safe_unlink(const char *pathname);
 /// @param flags Flags to pass to open.
 void open_fifo(const char *pathname, mode_t flags);
 
-void set_stop_server_io(int stop);
+void set_stop_io(int stop);
 
 #endif  // COMMON_IO_H
