@@ -94,7 +94,7 @@ void close_worker_threads() {
 
 client_args produce(int fd) {
   printf("Reading client arguments\n");
-  client_args ret;
+  client_args ret = {0};
   int res = 0;
 
   char code;
@@ -156,7 +156,6 @@ void *client_threads() {
 
     pthread_mutex_lock(&active_clients_mutex);
     for (int i = 0; i < MAX_SESSION_COUNT; i++) {
-      fprintf(stderr, "Checking client %d\n", active_clients[i].req_pipe_fd);
       if (active_clients[i].req_pipe_fd < 0) {
         strcpy(active_clients[i].req_pipe_path, client.req_pipe_path);
         strcpy(active_clients[i].resp_pipe_path, client.resp_pipe_path);
@@ -169,7 +168,6 @@ void *client_threads() {
         break;
       }
     }
-    fprintf(stderr, "Client %d connected\n", index);
     pthread_mutex_unlock(&active_clients_mutex);
 
     char code = OP_CONNECT;
@@ -187,14 +185,12 @@ void *client_threads() {
     int ret = 0;
 
     while (!stop_server) {
-      fprintf(stderr, "Client %d waiting for request\n", req_fd);
       ret = read_all(active_clients[index].req_pipe_fd, &code, sizeof(char), NULL);
-      fprintf(stderr, "Client %d : %d read code %d\n", active_clients[index].req_pipe_fd, active_clients[index].req_pipe_fd, code);
       if (ret == -1) {
         fprintf(stderr, "Failed to read from client\n");
         exit(1);
       } else if (ret == -2) {
-        printf("Client %d disconnected\n", index);
+        fprintf(stderr, "Client %d disconnected\n", index);
         break;
       }
 
@@ -210,7 +206,6 @@ void *client_threads() {
         printf("Client %d disconnected\n", index);
         break;
       }
-      
 
       switch (code) {
         case OP_SUBSCRIBE:
@@ -252,7 +247,6 @@ void *client_threads() {
       memset(key, '\0', MAX_STRING_SIZE + 1);
     }
 
-    fprintf(stderr, "Client %d ret\n", ret);
     if (ret >= 0) {
       kvs_disconnect_client(active_clients[index].keys, notif_fd);
       code = OP_DISCONNECT;
@@ -290,12 +284,15 @@ void client_pool_manager(pool_args * args) {
       fprintf(stderr, "Received SIGUSR1 and Handling\n");
       for (int i = 0; i < MAX_SESSION_COUNT; i++) {
         if (active_clients[i].req_pipe_fd != -1) {
-          fprintf(stderr, "Disconnecting client %d\n", i);
           kvs_disconnect_client(active_clients[i].keys, 
                                 active_clients[i].notif_pipe_fd);
-          close(active_clients[i].req_pipe_fd);
-          close(active_clients[i].resp_pipe_fd);
-          close(active_clients[i].notif_pipe_fd);
+
+          fprintf(stderr, "Closing FD %d\n", active_clients[i].notif_pipe_fd);
+          safe_close(active_clients[i].notif_pipe_fd);
+          fprintf(stderr, "Closing FD %d\n", active_clients[i].resp_pipe_fd);
+          safe_close(active_clients[i].resp_pipe_fd);
+          fprintf(stderr, "Closing FD %d\n", active_clients[i].req_pipe_fd);
+          safe_close(active_clients[i].req_pipe_fd);
 
           fprintf(stderr, "Close FD %d\n", active_clients[i].req_pipe_fd);
 
@@ -310,11 +307,13 @@ void client_pool_manager(pool_args * args) {
           active_clients[i].notif_pipe_fd = -1;
         }
       }
-      sigusr1_flag = 0;
+      fprintf(stderr, "SIGUSR1 handled\n");
+      sigusr1_flag = false;
     }
     if (!sigusr1_flag){
       client_args client = produce(server_reg_path);
       producer(client);
+      fprintf(stderr, "Produced\n");
     }
   }
 }
@@ -329,6 +328,5 @@ void sig_handler(int sig) {
   if (signal(sig, sig_handler) == SIG_ERR) {
     fprintf(stderr, "Failed to set signal handler\n");
   }
-
   return;
 }

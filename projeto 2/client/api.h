@@ -26,5 +26,8 @@ int kvs_subscribe(const char* key);
 /// @return 0 if the key was unsubscribed successfully  (subscription existed and was removed), 1 otherwise.
 
 int kvs_unsubscribe(const char* key);
+
+/// Notifies the client that the server has disconnected.
+void server_disconnected_gracefully();
  
 #endif  // CLIENT_API_H

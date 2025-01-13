@@ -301,10 +301,17 @@ static void dispatch_threads(DIR* dir, char* server_pathname) {
 
 
 int main(int argc, char** argv) {
-  if (signal(SIGUSR1, sig_handler) == SIG_ERR) {
+  struct sigaction sa;
+  memset(&sa, 0, sizeof(sa));
+  sa.sa_handler = sig_handler;
+  sigemptyset(&sa.sa_mask);
+  sa.sa_flags = 0;
+  if (sigaction(SIGUSR1, &sa, NULL) == -1) {
     fprintf(stderr, "Failed to change how SIGUSR1 is handled\n");
     return 1;
   }
+
+  sa.sa_flags = SA_RESTART;  
 
   if (argc < 5) {
     write_str(STDERR_FILENO, "Usage: ");

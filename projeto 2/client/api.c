@@ -193,4 +193,9 @@ int kvs_unsubscribe(const char* key) {
   return 0;
 }
 
+void server_disconnected_gracefully() {
+  safe_close(req_pipe_fd);
+  fprintf(stderr, "Server disconnected\n");
+  return;
 
+}

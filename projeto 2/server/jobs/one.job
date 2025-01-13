@@ -1,5 +1,5 @@
 WRITE [(a,anna)(b,bernardo)]
-WAIT 10000
+WAIT 1
 WRITE [(d,dinis)(c,carlota)]
 WRITE [(a,ricardo)(b,bernardo)]
 WRITE [(d,gonçalo)(c,carlota)]

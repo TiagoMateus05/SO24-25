@@ -13,24 +13,33 @@
 #include "../common/protocol.h"
 
 int disconnect_flag = 0;
+int server_disconnected = 0;
 
 void *notifications_thread(void *arg) {
   int *notif_fd = (int *)arg;
 
-  while (!disconnect_flag) {
-    char pair[MAX_STRING_SIZE + 1][MAX_STRING_SIZE + 1] = {'\0'};
+  while (!disconnect_flag && !server_disconnected) {
+    char pair[MAX_STRING_SIZE + 1][MAX_STRING_SIZE + 1] = {{'\0'}};
 
     if (read_all(*notif_fd, pair[0], MAX_STRING_SIZE + 1, NULL) <= 0) {
-        continue;
+        server_disconnected = 1;
+        close(STDIN_FILENO);
+        open("/dev/null", O_RDONLY); 
+        fprintf(stdout, "Server disconnected\n");
+        break;
     }
 
     if (read_all(*notif_fd, pair[1], MAX_STRING_SIZE + 1, NULL) <= 0) {
-        continue;
+        server_disconnected = 1;
+        close(STDIN_FILENO);
+        open("/dev/null", O_RDONLY);
+        fprintf(stdout, "Server disconnected\n");
+        break;
     }
 
     fprintf(stdout, "Notification: (%s,%s)\n", pair[0], pair[1]);
   }
-
+  fprintf(stdout, "Notifications thread exiting\n");
   return NULL;
 }
 
@@ -67,7 +76,7 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  while (1) {
+  while (!server_disconnected) {
     switch (get_next(STDIN_FILENO)) {
       case CMD_DISCONNECT:
         if (kvs_disconnect() != 0) {
@@ -139,9 +148,16 @@ int main(int argc, char* argv[]) {
         break;
     }
   }
-}
 
-void shutdown_gracefully() {
+  if (server_disconnected) {
+    fprintf(stderr, "Server disconnected\n");
+    server_disconnected_gracefully();
+    if(pthread_join(notif_thread, NULL) != 0) {
+      fprintf(stderr, "Failed to join notifications thread\n");
+      return 1;
+    }
+    free(notif_fd);
+  }
 
-
+  return 0;
 }

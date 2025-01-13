@@ -137,7 +137,6 @@ int add_subscriber(HashTable *ht, const char *key, int notif_fd) {
             for (int i = 0; i < MAX_SESSION_COUNT; i++) {
                 if (keyNode->subscribers[i] == -1) {
                     keyNode->subscribers[i] = notif_fd;
-                    fprintf(stdout, "Subscribed: %d\n", notif_fd);
                     return 1;
                 }
             }
@@ -173,7 +172,7 @@ int remove_subscriber(HashTable *ht, const char *key, int fd) {
 
 
 void notify_subscribers(KeyNode *keyNode, const char *value) {
-    char pair[MAX_STRING_SIZE + 1][MAX_STRING_SIZE + 1] = {'\0'};
+    char pair[MAX_STRING_SIZE + 1][MAX_STRING_SIZE + 1] = {{'\0'}};
     strcpy(pair[0], keyNode->key);
     strcpy(pair[1], value);
 
@@ -184,6 +183,5 @@ void notify_subscribers(KeyNode *keyNode, const char *value) {
             write_all(notif_fd, &pair[1], MAX_STRING_SIZE + 1);
         }
     }
-    fprintf(stdout, "Notified all subscribers\n");
 }
 

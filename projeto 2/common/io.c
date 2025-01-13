@@ -10,12 +10,12 @@
 #include <unistd.h>
 #include <errno.h>
 #include <stdbool.h>
+#include <stdatomic.h>
 
 #include "constants.h"
 
-
 int stop_io = 0;
- 
+
 int read_all(int fd, void *buffer, size_t size, int *intr) {
   if (intr != NULL && *intr) {
     return -1;
@@ -23,31 +23,22 @@ int read_all(int fd, void *buffer, size_t size, int *intr) {
   size_t bytes_read = 0;
   while (bytes_read < size) {
     ssize_t result = read(fd, buffer + bytes_read, size - bytes_read);
-    fprintf(stdout, "Read %ld bytes in fd: %d\n", result, fd);
     if (result == -1) {
-      if (errno == EPIPE || errno == EBADFD) {
-        fprintf(stderr, "Broken pipe\n");
-          return -2;
+      if (errno == EPIPE) {
+        return -2;
       } else if (errno == EINTR) {
-        if (intr != NULL) {
-          *intr = 1;
-          if (bytes_read == 0) {
-            return -1;
+          if (intr != NULL) {
+            *intr = 1;
+            if (bytes_read == 0) {
+              return -1;
+            }
           }
-        }
-
-        continue;
+          continue;
       }
-      perror("Failed to read from pipe");
-      return -1;
     } else if (result == 0) {
-      return 0;
+      return -2;
     }
     bytes_read += (size_t)result;
-  }
-  if (errno == EPIPE || errno == EBADFD) {
-    fprintf(stderr, "Broken pipe\n");
-    return -2;
   }
   return 1;
 }
@@ -71,14 +62,13 @@ int read_string(int fd, char *str) {
 int write_all(int fd, const void *buffer, size_t size) {
   size_t bytes_written = 0;
   while (bytes_written < size) {
-    fprintf(stdout, "Writing %ld bytes in fd: %d\n", size, fd);
     ssize_t result = write(fd, buffer + bytes_written, size - bytes_written);
     if (result == -1) {
       if (errno == EINTR) {
         // error for broken PIPE (error associated with writting to the closed PIPE)
         continue;
-      } else if (errno == EPIPE) {
-        return 2;
+      } else if (errno == SIGPIPE) {
+        return -2;
       }
       
       perror("Failed to write to pipe");
