@@ -1,5 +1,6 @@
 #include "io.h"
 #include <errno.h>
+#include <signal.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <stdio.h>

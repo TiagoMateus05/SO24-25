@@ -23,17 +23,21 @@ void *notifications_thread(void *arg) {
 
     if (read_all(*notif_fd, pair[0], MAX_STRING_SIZE + 1, NULL) <= 0) {
         server_disconnected = 1;
-        close(STDIN_FILENO);
-        open("/dev/null", O_RDONLY); 
-        fprintf(stdout, "Server disconnected\n");
+        free(notif_fd);
+        server_disconnected_gracefully();
+        fprintf(stderr, "Disconnected forcefully from server\n");
+        // client is disconnected forcefully because the server disconnected
+        exit(1);
         break;
     }
 
     if (read_all(*notif_fd, pair[1], MAX_STRING_SIZE + 1, NULL) <= 0) {
         server_disconnected = 1;
-        close(STDIN_FILENO);
-        open("/dev/null", O_RDONLY);
-        fprintf(stdout, "Server disconnected\n");
+        free(notif_fd);
+        server_disconnected_gracefully();
+        fprintf(stderr, "Disconnected forcefully from server\n");
+        // client is disconnected forcefully because the server disconnected
+        exit(1);
         break;
     }
 
@@ -148,16 +152,5 @@ int main(int argc, char* argv[]) {
         break;
     }
   }
-
-  if (server_disconnected) {
-    fprintf(stderr, "Server disconnected\n");
-    server_disconnected_gracefully();
-    if(pthread_join(notif_thread, NULL) != 0) {
-      fprintf(stderr, "Failed to join notifications thread\n");
-      return 1;
-    }
-    free(notif_fd);
-  }
-
   return 0;
 }
