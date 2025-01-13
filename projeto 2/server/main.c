@@ -270,7 +270,7 @@ static void dispatch_threads(DIR* dir, char* server_pathname) {
 
   // Opens the register server pipe in /tmp/reg for consistency
   char server_path[PATH_MAX];
-  snprintf(server_path, PATH_MAX, "/tmp/reg/%s", server_pathname);
+  snprintf(server_path, PATH_MAX, "/tmp/al97_reg_%s", server_pathname);
 
   // Opens Semaphore
   open_fifo(server_path, PIPE_PERMS);
@@ -362,18 +362,6 @@ int main(int argc, char** argv) {
   }
 
   //Creates the req, resp and notif folders
-  if (stat("/tmp/reg", &st) == -1) {
-    mkdir("/tmp/reg", 0700);
-  }
-  if (stat("/tmp/req", &st) == -1) {
-    mkdir("/tmp/req", 0700);
-  }
-  if (stat("/tmp/resp", &st) == -1) {
-    mkdir("/tmp/resp", 0700);
-  }
-  if (stat("/tmp/notif", &st) == -1) {
-    mkdir("/tmp/notif", 0700);
-  }
 
   dispatch_threads(dir, argv[4]);
 
@@ -385,19 +373,6 @@ int main(int argc, char** argv) {
   while (active_backups > 0) {
     wait(NULL);
     active_backups--;
-  }
-
-  if (stat("/tmp/reg", &st) == 0) {
-    rmdir("/tmp/reg");
-  }
-  if (stat("/tmp/req", &st) == 0) {
-    rmdir("/tmp/req");
-  }
-  if (stat("/tmp/resp", &st) == 0) {
-    rmdir("/tmp/resp");
-  }
-  if (stat("/tmp/notif", &st) == 0) {
-    rmdir("/tmp/notif");
   }
 
   kvs_terminate();

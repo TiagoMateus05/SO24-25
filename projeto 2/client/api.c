@@ -25,14 +25,14 @@ int kvs_connect(char const* req_pipe_path, char const* resp_pipe_path, char cons
   resp_pipe = resp_pipe_path;
   notif_pipe = notif_pipe_path;
 
-  //Creates the server path to pipe to connect to server, it should be in /tmp/reg/_server_name_
+  //Creates the server path to pipe to connect to server, it should be in /tmp/al97_reg_server_name_
   char reg_pipe_path[PATH_MAX];
 
   open_fifo(req_pipe_path, PIPE_PERMS);
   open_fifo(resp_pipe_path, PIPE_PERMS);
   open_fifo(notif_pipe_path, PIPE_PERMS);
 
-  snprintf(reg_pipe_path, PATH_MAX, "/tmp/reg/%s", server_pipe_path);
+  snprintf(reg_pipe_path, PATH_MAX, "/tmp/al97_reg_%s", server_pipe_path);
 
   int server_fd = safe_open(reg_pipe_path, O_WRONLY);
 
